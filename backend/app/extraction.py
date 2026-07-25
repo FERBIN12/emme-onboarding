@@ -16,18 +16,23 @@ details (metal tier, plan type, premium) and HSA info. Asking the model to
 extract "whatever of the full schema you can find" handles both uniformly
 and matches the requirement that unextracted fields just fall through to
 manual entry.
+
+Runs against a local Ollama vision model (qwen2.5vl:7b) instead of a cloud
+API, since real EOB/SBC documents carry PHI-adjacent data and the team
+wanted extraction to never leave the laptop. Ollama's vision models take
+images only, so PDFs are rasterized page-by-page with pdf2image first.
 """
 
 import base64
+import io
 import json
 
-import anthropic
+import ollama
+from pdf2image import convert_from_bytes
 
 from .schema import IntakeData
 
-_client = anthropic.Anthropic()
-
-_MODEL = "claude-sonnet-5"
+_MODEL = "qwen2.5vl:7b"
 
 _SCHEMA_HINT = """
 Extract any of the following fields you can find in this insurance
@@ -47,7 +52,8 @@ Platinum), plan type (HMO/PPO/EPO/HDHP), monthly premium, deductible
 details.
 
 Return ONLY a JSON object with this exact shape (omit or null any field not
-found -- do not guess or fabricate values):
+found -- do not guess or fabricate values), and nothing else -- no
+markdown fences, no commentary:
 
 {
   "identity": {"name": null, "email": null, "zip_code": null},
@@ -69,39 +75,72 @@ value that is not directly supported by the document text.
 """
 
 
-def extract_from_document(file_bytes: bytes, media_type: str) -> IntakeData:
-    """media_type: e.g. "application/pdf", "image/png", "image/jpeg"."""
+def _pdf_to_page_images(file_bytes: bytes) -> list[bytes]:
+    """Rasterize each PDF page to PNG bytes. Ollama vision models take
+    images, not PDFs directly."""
+    pages = convert_from_bytes(file_bytes, dpi=200)
+    out = []
+    for page in pages:
+        buf = io.BytesIO()
+        page.save(buf, format="PNG")
+        out.append(buf.getvalue())
+    return out
 
-    block_type = "document" if media_type == "application/pdf" else "image"
 
-    response = _client.messages.create(
+def _merge(base: dict, incoming: dict) -> dict:
+    """Fill in only the fields base doesn't already have, first page wins
+    on conflicts since page 1 usually carries the summary/identity info."""
+    for key, value in incoming.items():
+        if isinstance(value, dict):
+            base.setdefault(key, {})
+            base[key] = _merge(base[key], value)
+        elif isinstance(value, list):
+            if value and not base.get(key):
+                base[key] = value
+        else:
+            if base.get(key) is None and value is not None:
+                base[key] = value
+    return base
+
+
+def _call_model(image_bytes: bytes) -> dict:
+    response = ollama.chat(
         model=_MODEL,
-        max_tokens=2000,
         messages=[
             {
                 "role": "user",
-                "content": [
-                    {
-                        "type": block_type,
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": base64.b64encode(file_bytes).decode("utf-8"),
-                        },
-                    },
-                    {"type": "text", "text": _SCHEMA_HINT},
-                ],
+                "content": _SCHEMA_HINT,
+                "images": [base64.b64encode(image_bytes).decode("utf-8")],
             }
         ],
+        options={"temperature": 0},
     )
 
-    raw_text = response.content[0].text.strip()
-    # Model may wrap JSON in a fenced code block; strip it defensively.
+    raw_text = response["message"]["content"].strip()
     if raw_text.startswith("```"):
         raw_text = raw_text.strip("`")
         if raw_text.startswith("json"):
             raw_text = raw_text[4:]
         raw_text = raw_text.strip()
 
-    data = json.loads(raw_text)
-    return IntakeData.model_validate(data)
+    # Model may still add stray text around the JSON; take the outermost braces.
+    start, end = raw_text.find("{"), raw_text.rfind("}")
+    raw_text = raw_text[start : end + 1]
+
+    return json.loads(raw_text)
+
+
+def extract_from_document(file_bytes: bytes, media_type: str) -> IntakeData:
+    """media_type: e.g. "application/pdf", "image/png", "image/jpeg"."""
+
+    if media_type == "application/pdf":
+        page_images = _pdf_to_page_images(file_bytes)
+    else:
+        page_images = [file_bytes]
+
+    merged: dict = {}
+    for image_bytes in page_images:
+        page_result = _call_model(image_bytes)
+        merged = _merge(merged, page_result)
+
+    return IntakeData.model_validate(merged)

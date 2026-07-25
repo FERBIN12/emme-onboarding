@@ -1,6 +1,9 @@
 """Standalone smoke test for the extraction pipeline -- run this directly,
-no server needed, to verify the Claude call + parsing works before wiring
-it into the upload endpoint.
+no server needed, to verify the local Ollama call + PDF/image parsing works
+before wiring it into the upload endpoint.
+
+Requires: `ollama pull qwen2.5vl:7b` already done, and the ollama service
+running (systemctl status ollama).
 
 Usage: python test_extraction.py path/to/sample.pdf
 """
