@@ -475,8 +475,8 @@ details.help .body{margin-top:11px}
      rx_generic, hsa_eligible
    ============================================================================ */
 
-const MODE = 'mock';           // <-- 'mock' | 'api'
-const API_BASE = '/api';
+const MODE = 'api';             // <-- 'mock' | 'api'
+const API_BASE = 'https://emme-onboarding.onrender.com/api';
 
 /* ---- field dictionary: labels, plain-language copy, formatting ---- */
 const FIELDS = {
@@ -582,22 +582,22 @@ const DataSource = {
   async uploadDocuments(files){
     if(MODE==='mock'){ await wait(500); return {ok:true, uploaded:files.map(f=>f.name)}; }
     const fd = new FormData(); files.forEach(f=>fd.append('files',f));
-    return (await fetch(`${API_BASE}/documents`,{method:'POST',body:fd})).json();
+    return (await fetch(`${API_BASE}/documents`,{method:'POST',body:fd,credentials:'include'})).json();
   },
   async getExtraction(){
     if(MODE==='mock'){ await wait(2600); return structuredClone(MOCK_EXTRACTION); }
-    return (await fetch(`${API_BASE}/extraction`)).json();
+    return (await fetch(`${API_BASE}/extraction`,{credentials:'include'})).json();
   },
   async savePlan(plan){
     Store.write(plan);                                   // always keep a local copy
     if(MODE==='mock'){ return {ok:true}; }
     return (await fetch(`${API_BASE}/plan`,{
-      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(plan)
+      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(plan), credentials:'include'
     })).json();
   },
   async getPlan(){
     if(MODE==='mock'){ return Store.read(); }
-    return (await fetch(`${API_BASE}/plan`)).json();
+    return (await fetch(`${API_BASE}/plan`,{credentials:'include'})).json();
   }
 };
 

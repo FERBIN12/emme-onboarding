@@ -25,7 +25,16 @@ from app.plan_view import FIELD_MAP, from_plan_json, to_plan_json
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "hackathon-dev-secret-change-me")
-CORS(app, supports_credentials=True)
+
+# Frontend (Vercel) and backend (Render) are different origins, so the
+# session cookie needs SameSite=None + Secure, and CORS needs an explicit
+# origin list rather than "*" -- credentialed requests can't use a
+# wildcard origin.
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SECURE"] = True
+
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+CORS(app, supports_credentials=True, origins=CORS_ORIGINS)
 
 db_url = os.environ.get("DATABASE_URL", "sqlite:///intake.db")
 # Render/Heroku-style URLs start with postgres://, SQLAlchemy wants postgresql://
