@@ -453,7 +453,7 @@ const EXTRACTED = {
   }
 };
 
-let PLAN=null, view='home', step=0, confQ=[], ci=0, manQ=[], mi=0, editing=false, picked=null, spend=3000, pickedFile=null;
+let PLAN=null, view='login', step=0, confQ=[], ci=0, manQ=[], mi=0, editing=false, picked=null, spend=3000, pickedFile=null;
 
 const V=document.getElementById('views'), HDR=document.getElementById('hdr'), MAIN=document.getElementById('main');
 const money=n=>'$'+Math.round(n).toLocaleString('en-US');
@@ -479,7 +479,7 @@ async function persist(){ if(!PLAN)return; PLAN.updated_at=new Date().toISOStrin
 function go(v){ view=v; window.scrollTo({top:0,behavior:'auto'}); render(); }
 document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{
   const n=b.dataset.nav;
-  if(n==='logout'){ Store.clear(); PLAN=null; step=0; ci=0; mi=0; go('home'); return; }
+  if(n==='logout'){ Store.clear(); PLAN=null; step=0; ci=0; mi=0; go('login'); return; }
   if(n==='plan'){ if(!PLAN){ step=0; return go('onboard'); } return go('dash'); }
   go(n==='home'?'home':n==='compare'?'compare':'home');
 });
