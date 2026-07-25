@@ -1,6 +1,4 @@
 fastapi
 uvicorn[standard]
-ollama
-pdf2image
 python-multipart
 google-genai

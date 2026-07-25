@@ -8,26 +8,21 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## AI extraction: local Ollama, not a cloud API
+## AI extraction: Gemini
 
-Document extraction (`app/extraction.py`) runs against a local Ollama vision
-model (`llava:7b`) instead of a cloud API, since uploaded SBC/EOB
-documents are health/financial data and the team decided not to send them
-to a third party for the hackathon build. Everything runs on-device.
+Document extraction (`app/extraction.py`) calls Gemini vision to read an
+uploaded SBC/EOB and fill whatever schema fields are present. Local Ollama
+vision models were tried first for privacy (nothing leaves the laptop) but
+none were reliable at the extraction task on the available hardware, so
+Gemini is the primary path.
 
-Note: `qwen2.5vl:7b` was tried first (better structured-extraction quality)
-but doesn't fit in 6GB VRAM even at a small context window (CUDA OOM on the
-vision encoder). `llava:7b` (~4.5GB) is the fallback that actually fits.
+Safeguard: identity fields (name, email, zip code) are never sent to or
+requested from Gemini -- the prompt excludes them entirely, since the
+member already types them into the form directly. See `app/extraction.py`
+for details.
 
-One-time setup:
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llava:7b
-```
-
-The `ollama` systemd service must be running (`systemctl status ollama`).
-No API key needed.
+Requires `GEMINI_API_KEY` in the environment. Get a free key at
+https://aistudio.google.com/apikey.
 
 ## Test extraction standalone
 
