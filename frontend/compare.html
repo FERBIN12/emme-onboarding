@@ -447,7 +447,8 @@ const FIELDS = {
   deductible_used:{l:'Deductible used',f:'money',say:'How much of your deductible you have already paid this year.'},
   oop_max_individual:{l:'Out-of-pocket maximum',f:'money',say:'The most you will pay for covered care this year.'},
   oop_spent:{l:'Spent toward maximum',f:'money',
-    say:'How much you have paid so far this year that counts toward your out-of-pocket maximum. Found on page 2 of your EOB, under "In-network out-of-pocket maximum applied to date."'},
+    say:'How much you have paid so far this year that counts toward your out-of-pocket maximum. Found on page 1 of your EOB, under "In-network out-of-pocket maximum applied to date."',
+    q:'How much have you spent toward your out-of-pocket maximum this year?'},
   coinsurance:{l:'Your share after the deductible',f:'pct',
     say:'Once your deductible is paid, you and your plan split the bill. 20% means you pay 20 and your plan pays 80. Derived from page 2 of your EOB: (Coinsurance you pay ÷ Amount approved for service) × 100.'},
   copay_primary:{l:'Regular doctor visit',f:'money',say:'A flat fee you pay when you see your usual doctor.'},
@@ -983,7 +984,7 @@ document.getElementById('chatIn').onkeydown=e=>{ if(e.key==='Enter'){ send(e.tar
 
 /* ── actions ────────────────────────────────────────────── */
 const MANUAL_ORDER=['carrier','plan_name','monthly_premium','deductible_individual','deductible_used',
-  'oop_max_individual','coinsurance','copay_primary','copay_specialist','copay_urgent_care','copay_er','hsa_eligible'];
+  'oop_max_individual','oop_spent','coinsurance','copay_primary','copay_specialist','copay_urgent_care','copay_er','hsa_eligible'];
 
 function startConfirm(){ confQ=Object.keys(PLAN.fields).filter(k=>PLAN.fields[k].confidence==='needs_confirmation');
   ci=0; editing=false; if(!confQ.length) return startManual(); step=5; render(); }
