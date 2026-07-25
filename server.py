@@ -18,6 +18,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
+from app.adapter import prune_nulls, to_session_shape
+from app.chatbot import answer_question
+from app.extraction import ExtractionError, extract_from_document
+
 app = Flask(__name__)
 CORS(app)
 
@@ -127,6 +131,56 @@ def session_summary(token):
         "missingFields": missing,
         "isComplete": len(missing) == 0,
     })
+
+
+# ---- Document upload / extraction -------------------------------------------
+# Frontend: POST /api/session/<token>/documents, multipart field "file".
+# Runs Gemini extraction, merges whatever fields it found into the session
+# (never overwriting fields the member already filled in), and returns the
+# updated session so the frontend can route extracted-but-uncertain fields
+# to the confirm screen and everything else to manual entry.
+
+ALLOWED_CONTENT_TYPES = {"application/pdf", "image/png", "image/jpeg"}
+
+
+@app.route("/api/session/<token>/documents", methods=["POST"])
+def upload_document(token):
+    session = Session.query.get(token)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+
+    file = request.files.get("file")
+    if not file or file.content_type not in ALLOWED_CONTENT_TYPES:
+        return jsonify({"error": f"Unsupported or missing file (got {file.content_type if file else None})"}), 400
+
+    file_bytes = file.read()
+    if not file_bytes:
+        return jsonify({"error": "Uploaded file is empty"}), 400
+
+    try:
+        extracted = extract_from_document(file_bytes, file.content_type)
+    except ExtractionError as e:
+        # Not a server error -- frontend falls back to manual entry for
+        # whatever wasn't extracted, per the graceful-fallback requirement.
+        return jsonify({"error": f"Could not extract data from this document: {e}"}), 422
+
+    extracted_shape = prune_nulls(to_session_shape(extracted))
+    merged = deep_merge(copy.deepcopy(session.data or {}), extracted_shape)
+    session.data = merged
+    db.session.commit()
+    return jsonify(session.to_dict())
+
+
+# ---- Plain-language chat widget ----------------------------------------------
+# Independent of the intake flow -- if this fails, the form must keep working.
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    body = request.get_json(force=True) or {}
+    question = (body.get("question") or "").strip()
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+    return jsonify({"answer": answer_question(question)})
 
 
 # ---- Finalize / structured export -------------------------------------------
