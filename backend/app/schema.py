@@ -5,21 +5,25 @@ skip-upload, graceful fallback), so nothing can be required at the model
 level. "Is this submittable" is a separate check, not a schema constraint.
 """
 
+import re
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, BeforeValidator
 from typing_extensions import Annotated
 
+_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
 
 def _clean_money(v):
     """LLM extraction sometimes returns dollar-formatted strings like
-    "$500.00" or "1,234.56" instead of a bare number. Strip formatting
-    before Pydantic's float parser sees it."""
+    "$500.00", "1,234.56", or "$500/year" instead of a bare number. Pull
+    the first numeric token out rather than assuming a fixed set of
+    characters to strip, since real documents append units ("/year",
+    "per month", "annually") in ways we can't fully predict."""
     if isinstance(v, str):
-        v = v.replace("$", "").replace(",", "").strip()
-        if v == "":
-            return None
+        match = _NUMBER_RE.search(v.replace(",", ""))
+        return float(match.group()) if match else None
     return v
 
 

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .chatbot import answer_question
-from .extraction import extract_from_document
+from .extraction import ExtractionError, extract_from_document
 
 app = FastAPI(title="Emme Onboarding API")
 
@@ -30,10 +30,16 @@ async def extract(file: UploadFile):
         raise HTTPException(400, f"Unsupported file type: {file.content_type}")
 
     file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(400, "Uploaded file is empty")
+
     try:
         result = extract_from_document(file_bytes, file.content_type)
-    except ValueError as e:
-        raise HTTPException(422, str(e))
+    except ExtractionError as e:
+        # Extraction failed (corrupt file, unreadable doc, malformed model
+        # output). This is not a server error -- the caller should fall
+        # back to manual entry, per the "graceful fallback" requirement.
+        raise HTTPException(422, f"Could not extract data from this document: {e}")
 
     return result.model_dump()
 

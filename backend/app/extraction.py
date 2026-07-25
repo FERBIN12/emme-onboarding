@@ -30,6 +30,7 @@ import os
 
 from google import genai
 from google.genai import types
+from pydantic import ValidationError
 
 from .schema import IntakeData
 
@@ -82,20 +83,30 @@ value that is not directly supported by the document text.
 """
 
 
+class ExtractionError(Exception):
+    """Raised whenever the document can't be extracted at all (corrupt
+    file, unreadable upload, empty document, model/API failure). The
+    caller should treat this as "upload didn't work" and fall back to
+    manual entry, not as a 500."""
+
+
 def extract_from_document(file_bytes: bytes, media_type: str) -> IntakeData:
     """media_type: e.g. "application/pdf", "image/png", "image/jpeg".
 
     Gemini accepts PDFs directly, no page rasterization needed.
     """
 
-    response = _client.models.generate_content(
-        model=_MODEL,
-        contents=[
-            types.Part.from_bytes(data=file_bytes, mime_type=media_type),
-            _SCHEMA_HINT,
-        ],
-        config=types.GenerateContentConfig(temperature=0),
-    )
+    try:
+        response = _client.models.generate_content(
+            model=_MODEL,
+            contents=[
+                types.Part.from_bytes(data=file_bytes, mime_type=media_type),
+                _SCHEMA_HINT,
+            ],
+            config=types.GenerateContentConfig(temperature=0),
+        )
+    except genai.errors.ClientError as e:
+        raise ExtractionError(f"Document could not be read: {e}") from e
 
     raw_text = response.text.strip()
     if raw_text.startswith("```"):
@@ -106,11 +117,14 @@ def extract_from_document(file_bytes: bytes, media_type: str) -> IntakeData:
 
     start, end = raw_text.find("{"), raw_text.rfind("}")
     if start == -1 or end == -1 or end < start:
-        raise ValueError(
+        raise ExtractionError(
             f"Model response had no parseable JSON object (likely truncated). "
             f"Raw response: {raw_text[:300]!r}"
         )
     raw_text = raw_text[start : end + 1]
 
-    data = json.loads(raw_text)
-    return IntakeData.model_validate(data)
+    try:
+        data = json.loads(raw_text)
+        return IntakeData.model_validate(data)
+    except (json.JSONDecodeError, ValidationError) as e:
+        raise ExtractionError(f"Model returned malformed data: {e}") from e
