@@ -1010,10 +1010,31 @@ function wire(){
       const u=document.getElementById('u').value.trim().toLowerCase(), p=document.getElementById('p').value;
       if(!u||!p){ loginErr='Enter both a username and a password.'; render(); return; }
       if(API.mode!=='live'){ loginErr='Sign-in requires the live backend.'; render(); return; }
+      const endpoint=a==='signup'?'/api/signup':'/api/login';
+      const btn=el; const origLabel=btn.innerHTML;
+
+      const attempt=async(timeoutMs)=>{
+        const ctrl=new AbortController();
+        const t=setTimeout(()=>ctrl.abort(),timeoutMs);
+        try{
+          const r=await fetch(API.base+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({username:u,password:p}),credentials:'include',signal:ctrl.signal});
+          clearTimeout(t);
+          return r;
+        }catch(e){ clearTimeout(t); throw e; }
+      };
+
       try{
-        const endpoint=a==='signup'?'/api/signup':'/api/login';
-        const r=await fetch(API.base+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({username:u,password:p}),credentials:'include'});
+        let r;
+        try{
+          r=await attempt(8000);
+        }catch(e){
+          // First attempt often fails/times out if the free-tier backend
+          // is cold-starting (can take 30-60s). Show that explicitly and
+          // retry once with a much longer timeout instead of giving up.
+          btn.innerHTML='Waking up the server…';
+          r=await attempt(45000);
+        }
         const body=await r.json();
         if(!r.ok||body.ok===false){ loginErr=body.error||"Those details didn't match. Try again."; render(); return; }
         loginErr='';
@@ -1023,7 +1044,10 @@ function wire(){
         }catch(e){ PLAN=null; }
         if(PLAN) Store.save(PLAN);
         go('home');
-      }catch(e){ loginErr='Could not reach the server. Try again.'; render(); }
+      }catch(e){
+        loginErr='The server took too long to respond. Please try again in a moment.';
+        render();
+      }
     }
     else if(a==='toggleSignup'){ signupMode=!signupMode; loginErr=''; render(); }
     else if(a==='togglepw'){
