@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Emme — Understand your health plan</title>
+<title>Emme: Understand your health plan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -284,6 +284,13 @@ details.help .bd{margin-top:13px;animation:enter .3s var(--e-out) both}
 .callout{font-family:var(--read);font-size:15px;color:var(--clay);background:var(--clay-soft);border-radius:var(--r-sm);padding:11px 14px}
 .choices{display:flex;gap:10px}
 .choice{flex:1;padding:16px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--surface);font-family:var(--display);font-size:15px;font-weight:600;cursor:pointer;transition:all .18s var(--e)}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:46px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:0;padding:4px;color:var(--ink-3);cursor:pointer;display:flex;border-radius:6px;transition:color .15s}
+.pw-toggle:hover{color:var(--ink-2)}
+@keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+.shake{animation:shake .4s}
+.q-in.err,.choices.err{outline:2px solid var(--clay,#c0654a);outline-offset:2px;border-radius:var(--r)}
 .choice:hover{border-color:var(--line-2);transform:translateY(-1px)}
 .choice.sel{border-color:var(--pine);background:var(--pine-soft);color:var(--pine)}
 
@@ -414,22 +421,25 @@ details.help .bd{margin-top:13px;animation:enter .3s var(--e-out) both}
     <input id="chatIn" placeholder="What's a deductible?" aria-label="Message">
     <button id="chatSend" aria-label="Send">→</button>
   </div>
-  <p class="chat-f">Explanations only — not medical, legal or enrolment advice.</p>
+  <p class="chat-f">Explanations only, not medical, legal or enrolment advice.</p>
 </div>
 
 <div class="toast" id="toast">Saved</div>
 
 <script>
 /* ════════════════════════════════════════════════════════════════════════
-   Emme — single-file build. Opens straight from disk, no server required.
+   Emme: single-file build. Opens straight from disk, no server required.
    Set API.mode = 'live' to route through server.py instead of local demo.
    ════════════════════════════════════════════════════════════════════════ */
 const API = { mode:'live', base:'https://emme-onboarding.onrender.com' };
 
+const EYE_OPEN='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_CLOSED='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.65 3.94M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+
 const FIELDS = {
   carrier:{l:'Insurance company'}, plan_name:{l:'Plan name'}, plan_type:{l:'Plan type'},
   monthly_premium:{l:'Monthly premium',f:'money',
-    say:'What you pay every month to keep your coverage active — whether or not you see a doctor.',
+    say:'What you pay every month to keep your coverage active, whether or not you see a doctor.',
     q:'What do you pay each month for this plan?',
     w:["Your employer's benefits portal","Your insurance account","Your payslip, under deductions"]},
   deductible_individual:{l:'Individual deductible',f:'money',
@@ -438,9 +448,9 @@ const FIELDS = {
   oop_max_individual:{l:'Out-of-pocket maximum',f:'money',say:'The most you will pay for covered care this year.'},
   oop_spent:{l:'Spent toward maximum',f:'money'},
   coinsurance:{l:'Your share after the deductible',f:'pct',
-    say:'Once your deductible is paid, you and your plan split the bill. 20% means you pay 20 and your plan pays 80.'},
+    say:'Once your deductible is paid, you and your plan split the bill. 20% means you pay 20 and your plan pays 80. Derived from page 2 of your EOB: (Coinsurance you pay ÷ Amount approved for service) × 100.'},
   copay_primary:{l:'Regular doctor visit',f:'money',say:'A flat fee you pay when you see your usual doctor.'},
-  copay_specialist:{l:'Specialist visit',f:'money',say:'What you pay to see a specialist — a dermatologist, cardiologist, and so on.'},
+  copay_specialist:{l:'Specialist visit',f:'money',say:'What you pay to see a specialist: a dermatologist, cardiologist, and so on.'},
   copay_urgent_care:{l:'Urgent care',f:'money',say:'What a walk-in urgent care visit costs you.'},
   copay_er:{l:'Emergency room',f:'money',say:'What an emergency room visit costs you.',
     q:'What do you pay at the emergency room?',w:['Page 2 of your SBC']},
@@ -523,7 +533,7 @@ addEventListener('scroll',()=>HDR.classList.toggle('stuck',scrollY>6),{passive:t
 
 function render(){
   HDR.classList.toggle('hidden', view==='login');
-  MAIN.classList.toggle('narrow', view==='login'||view==='onboard');
+  MAIN.classList.toggle('narrow', view==='onboard');
   document.getElementById('howitworks').classList.toggle('show', view==='login'||view==='home');
   document.querySelectorAll('nav [data-nav]').forEach(b=>b.classList.toggle('on',
     (b.dataset.nav==='home'&&view==='home')||
@@ -540,21 +550,43 @@ function render(){
 
 /* ── login ──────────────────────────────────────────────── */
 let loginErr='', signupMode=false;
+const LANDING_PROPS=[
+  {icon:'📄',t:'Upload, and it reads for you',d:'Drop in your SBC or EOB. Emme pulls out your deductible, copays, and premium automatically.'},
+  {icon:'💬',t:'Plain English, always',d:'Every number comes with a one-line explanation of what it means and why it matters.'},
+  {icon:'🔎',t:'See where you stand',d:'One dashboard for your deductible, out-of-pocket max, and what a visit actually costs.'},
+  {icon:'⚖️',t:'Compare without the sales pitch',d:'See how your plan stacks up against the alternatives, based on how much care you actually use.'}
+];
+
 function vLogin(){ return `
-  <div style="padding:8vh 0 0">
+  <div style="padding:6vh 0 0">
     <div class="stagger">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:34px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px">
         <span class="glyph" style="width:26px;height:26px;border-radius:8px;background:var(--pine);position:relative;display:inline-block"></span>
         <span style="font-family:var(--util);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--pine)">Emme</span>
       </div>
-      <h1>${signupMode?'Create your account.':'Welcome back.'}</h1>
-      <p class="say" style="margin:14px 0 28px">Your plan, your numbers, and an assistant that explains them in plain English.</p>
+      <h1 style="font-size:clamp(32px,5vw,44px);line-height:1.08">Health insurance, finally in plain English.</h1>
+      <p class="say" style="margin:16px 0 8px;font-size:18px;max-width:52ch">Upload your plan or answer a few questions. Emme turns the fine print into a dashboard you can actually read, and an assistant that explains every number.</p>
+    </div>
+    <div class="grid g2" style="margin:32px 0 40px;gap:16px">
+      ${LANDING_PROPS.map(p=>`
+        <div class="cov" style="cursor:default">
+          <div style="font-size:22px;margin-bottom:8px">${p.icon}</div>
+          <div class="l" style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:4px">${p.t}</div>
+          <div class="say-sm">${p.d}</div>
+        </div>`).join('')}
+    </div>
+    <div class="stagger" style="max-width:420px">
+      <h2 style="margin-bottom:4px">${signupMode?'Create your account.':'Welcome back.'}</h2>
+      <p class="say-sm" style="margin-bottom:20px">Your plan, your numbers, and an assistant that explains them in plain English.</p>
       <div class="card">
         <label class="lbl" for="u">Username</label>
         <input id="u" placeholder="username" autocomplete="username">
         <div style="height:16px"></div>
         <label class="lbl" for="p">Password</label>
-        <input id="p" type="password" placeholder="${signupMode?'at least 6 characters':'••••••••'}" autocomplete="${signupMode?'new-password':'current-password'}">
+        <div class="pw-wrap">
+          <input id="p" type="password" placeholder="${signupMode?'at least 6 characters':'••••••••'}" autocomplete="${signupMode?'new-password':'current-password'}">
+          <button type="button" class="pw-toggle" data-act="togglepw" aria-label="Show password">${EYE_OPEN}</button>
+        </div>
         <div style="height:22px"></div>
         <button class="btn wide" data-act="${signupMode?'signup':'login'}">${signupMode?'Create account':'Sign in'} <span class="arw">→</span></button>
         ${loginErr?`<div class="callout" style="margin-top:16px">${esc(loginErr)}</div>`:''}
@@ -573,7 +605,7 @@ function vHome(){
       <span class="eyebrow">Good to see you</span>
       <h1 style="margin-top:12px">${done?'Here\'s where your plan stands.':'Let\'s make sense of your plan.'}</h1>
       <p class="say lede" style="margin-top:14px">${done
-        ? 'Everything we read from your documents, organised in one place — plus how your plan stacks up against the alternatives.'
+        ? 'Everything we read from your documents, organised in one place, plus how your plan stacks up against the alternatives.'
         : 'Upload your insurance documents or answer a few simple questions. It takes about two minutes, and you can stop and come back any time.'}</p>
     </div>
     ${done?`
@@ -598,7 +630,7 @@ function vHome(){
       <button class="tile" data-act="gochat">
         <span class="ico">✳</span>
         <h3>Ask a question</h3>
-        <p class="say-sm">Deductibles, coinsurance, HSAs — explained without the jargon.</p>
+        <p class="say-sm">Deductibles, coinsurance, HSAs: explained without the jargon.</p>
         <span class="go">Open assistant →</span>
       </button>
     </div>
@@ -625,7 +657,7 @@ function vOnboard(){
       <button class="btn wide" data-act="step" data-v="1">Upload my documents <span class="arw">→</span></button>
       <button class="btn ghost wide" data-act="manual">Enter information manually</button>
     </div>
-    <p class="say-sm" style="text-align:center;margin-top:20px">No documents? No problem — you can stop and come back any time.</p></div>`;
+    <p class="say-sm" style="text-align:center;margin-top:20px">No documents? No problem, you can stop and come back any time.</p></div>`;
 
   if(step===1) return rail(16,'Your documents')+`<div class="stagger">
     <h1>Two documents do most of the work.</h1>
@@ -647,7 +679,7 @@ function vOnboard(){
     <div class="card" style="margin-top:14px">
       <span class="eyebrow">Document 2</span>
       <h2 style="margin:8px 0 8px">Explanation of Benefits</h2>
-      <p class="say-sm" style="font-size:16px;margin-bottom:16px">Shows what happened after a visit — what was charged, what insurance paid, what's left for you.</p>
+      <p class="say-sm" style="font-size:16px;margin-bottom:16px">Shows what happened after a visit: what was charged, what insurance paid, what's left for you.</p>
       <div class="callout" style="margin-bottom:18px"><b>This is not a bill.</b> Nothing is due when you get one.</div>
       <button class="btn wide" data-act="step" data-v="2">Upload my EOB</button>
     </div>
@@ -662,7 +694,7 @@ function vOnboard(){
       <h3>Choose a file or take a photo</h3>
       <span class="eyebrow" style="display:block;margin-top:8px">PDF · PNG · JPEG · CAMERA</span>
     </button>
-    <button class="btn quiet wide" style="margin-top:18px" data-act="manual">Skip — I'll answer questions instead</button></div>`;
+    <button class="btn quiet wide" style="margin-top:18px" data-act="manual">Skip, I'll answer questions instead</button></div>`;
 
   if(step===3) return rail(48,'Reading')+`<div style="padding:6vh 0" id="proc">
     ${PROC.map((t,i)=>`<div class="proc-l" data-i="${i}"><span class="spin" style="visibility:hidden"></span><span>${t}</span></div>`).join('')}</div>`;
@@ -712,7 +744,7 @@ function vOnboard(){
         <div class="bd"><div class="where"><ul>${m.w.map(x=>`<li>${x}</li>`).join('')}</ul></div></div></details>`:''}
     </div>
     <button class="btn wide" style="margin-top:18px" data-act="submitman">Continue <span class="arw">→</span></button>
-    <button class="btn quiet wide" style="margin-top:6px" data-act="unsure">I'm not sure — skip this</button></div>`;
+    <button class="btn quiet wide" style="margin-top:6px" data-act="unsure">I'm not sure, skip this</button></div>`;
 }
 
 function counts(){ const v=Object.values(PLAN.fields);
@@ -793,7 +825,7 @@ function vDash(){
       <div class="card" style="margin-top:16px;border:1.5px dashed var(--clay);background:var(--clay-soft);box-shadow:none">
         <span class="chip m" style="background:#fff"><span class="dot m"></span>${gaps.length} still missing</span>
         <h2 style="margin:14px 0 6px">Add the rest whenever you like.</h2>
-        <p class="say">Your dashboard works without these — it just gets more accurate with them.</p>
+        <p class="say">Your dashboard works without these, it just gets more accurate with them.</p>
         <button class="btn ghost" style="margin-top:18px" data-act="fillall">Fill in ${gaps.length} detail${gaps.length>1?'s':''}</button>
       </div>`:`
       <div class="card" style="margin-top:16px;border-color:var(--pine);background:var(--pine-soft);box-shadow:none">
@@ -851,12 +883,12 @@ function vCompare(){
   return `<div class="stagger">
     <div>
       <h1>How your plan compares.</h1>
-      <p class="say lede" style="margin-top:14px">Plans don't sort into better and worse — they sort by how much care you use. Move the dial and watch the ranking change.</p>
+      <p class="say lede" style="margin-top:14px">Plans don't sort into better and worse. They sort by how much care you use. Move the dial and watch the ranking change.</p>
     </div>
     <div class="panel" style="margin-top:26px">
       <span class="eyebrow">If you use this much care in a year</span>
       <div class="hero-n num" id="sv">${money(spend)}</div>
-      <p class="hero-l" style="margin-bottom:20px">The total billed by doctors and pharmacies before insurance pays anything — not what comes out of your pocket.</p>
+      <p class="hero-l" style="margin-bottom:20px">The total billed by doctors and pharmacies before insurance pays anything, not what comes out of your pocket.</p>
       <input type="range" id="sl" min="0" max="60000" step="500" value="${spend}" aria-label="Annual healthcare spending">
       <div class="scale"><span>$0</span><span>$15k</span><span>$30k</span><span>$45k</span><span>$60k</span></div>
       <div class="presets">${PRE.map(p=>`<button class="preset${spend===p[1]?' on':''}" data-act="pre" data-v="${p[1]}">${p[0]}</button>`).join('')}</div>
@@ -866,7 +898,7 @@ function vCompare(){
     </div>
     <div class="sec"><h2>At <span id="sv2" class="num">${money(spend)}</span> of care</h2><span class="eyebrow">Ranked by total yearly cost</span></div>
     <div class="grid g2" id="cards">${cards(rank,me)}</div>
-    <div class="notice" style="margin-top:18px">These compare premiums and cost sharing only — not whether your doctors are in each network, which prescriptions are covered, or how each insurer handles claims. Emme won't tell you which plan to pick.</div>
+    <div class="notice" style="margin-top:18px">These compare premiums and cost sharing only, not whether your doctors are in each network, which prescriptions are covered, or how each insurer handles claims. Emme won't tell you which plan to pick.</div>
   </div>`; }
 
 function cards(rank,me){ return rank.map(p=>{
@@ -898,17 +930,17 @@ function updateCompare(){
 
 /* ── chat ───────────────────────────────────────────────── */
 const BOT=[
-  [/deductible/i,'Your deductible is $2,000 — that is what you pay yourself before your plan starts sharing costs. You have paid $650 so far, so $1,350 to go this year.'],
+  [/deductible/i,'Your deductible is $2,000, that is what you pay yourself before your plan starts sharing costs. You have paid $650 so far, so $1,350 to go this year.'],
   [/coinsurance|split|percent/i,'Coinsurance is the split after your deductible is met. Yours is 20%, so on a $1,000 bill you would pay $200 and your plan pays $800.'],
   [/hsa|savings/i,'A Health Savings Account lets you set money aside for medical costs before tax. Your Gold PPO is HSA eligible, so you can contribute to one.'],
   [/premium/i,'You pay $245 a month, which is $2,940 a year. That is due whether or not you see a doctor.'],
   [/out.?of.?pocket|maximum|\bmax\b/i,'Your out-of-pocket maximum is $6,500. Once you reach it, your plan covers 100% of covered care for the rest of the year. You are at $940.'],
-  [/bronze|cheap/i,'Bronze has the lowest premium but a $7,000 deductible and 40% coinsurance. It wins in a healthy year and loses badly in an expensive one — drag the dial past about $6,000 and watch the lines cross.'],
-  [/which|best|should i|recommend|pick/i,'I will not pick for you — that depends on your doctors, your prescriptions and your tolerance for a bad year, none of which is in these numbers. What I can show you is where each plan costs less. Try the dial on the compare page.'],
+  [/bronze|cheap/i,'Bronze has the lowest premium but a $7,000 deductible and 40% coinsurance. It wins in a healthy year and loses badly in an expensive one. Drag the dial past about $6,000 and watch the lines cross.'],
+  [/which|best|should i|recommend|pick/i,'I will not pick for you. That depends on your doctors, your prescriptions and your tolerance for a bad year, none of which is in these numbers. What I can show you is where each plan costs less. Try the dial on the compare page.'],
   [/compare|difference|versus|vs/i,'Against your Gold PPO: Platinum costs $115 more a month but has a $1,250 lower deductible. Bronze saves $117 a month but exposes you to $2,700 more in a bad year.'],
-  [/copay|visit|doctor/i,'Your regular doctor visit is $25 and urgent care is $75. A specialist is $50 — that one came through as needing a check, so confirm it against your SBC.'],
+  [/copay|visit|doctor/i,'Your regular doctor visit is $25 and urgent care is $75. A specialist is $50, that one came through as needing a check, so confirm it against your SBC.'],
   [/eob|explanation/i,'An Explanation of Benefits is not a bill. It arrives after a visit and shows what was charged, what your plan paid, and what is left for you.'],
-  [/sbc|summary/i,'The Summary of Benefits and Coverage is the plan overview — deductible, copays, coinsurance and out-of-pocket maximum, usually in the first two pages.']
+  [/sbc|summary/i,'The Summary of Benefits and Coverage is the plan overview: deductible, copays, coinsurance and out-of-pocket maximum, usually in the first two pages.']
 ];
 const reply=t=>(BOT.find(([r])=>r.test(t))||[,'I can explain deductibles, coinsurance, premiums, out-of-pocket maximums and HSAs, or walk you through how these plans differ. What would help?'])[1];
 
@@ -916,7 +948,7 @@ const chatEl=document.getElementById('chat'), logEl=document.getElementById('log
 let msgs=[];
 function openChat(){
   chatEl.classList.add('open'); document.getElementById('fab').classList.add('gone');
-  if(!msgs.length){ addMsg('a',"Ask me anything about your plan or these comparisons. I explain — I won't tell you which plan to buy."); showSuggs(); }
+  if(!msgs.length){ addMsg('a',"Ask me anything about your plan or these comparisons. I explain, I won't tell you which plan to buy."); showSuggs(); }
   setTimeout(()=>document.getElementById('chatIn').focus(),300);
 }
 function closeChat(){ chatEl.classList.remove('open'); render(); }
@@ -980,6 +1012,13 @@ function wire(){
       }catch(e){ loginErr='Could not reach the server. Try again.'; render(); }
     }
     else if(a==='toggleSignup'){ signupMode=!signupMode; loginErr=''; render(); }
+    else if(a==='togglepw'){
+      const inp=document.getElementById('p');
+      const showing=inp.type==='text';
+      inp.type=showing?'password':'text';
+      el.innerHTML=showing?EYE_OPEN:EYE_CLOSED;
+      el.setAttribute('aria-label',showing?'Show password':'Hide password');
+    }
     else if(a==='goplan'){ if(PLAN) go('dash'); else { step=0; go('onboard'); } }
     else if(a==='gocompare') go('compare');
     else if(a==='gochat') openChat();
@@ -1004,8 +1043,22 @@ function wire(){
     else if(a==='pick'){ document.querySelectorAll('.choice').forEach(c=>c.classList.remove('sel'));
       el.classList.add('sel'); picked=el.dataset.v; }
     else if(a==='submitman'){ const k=manQ[mi], m=FIELDS[k], f=PLAN.fields[k];
-      if(m.f==='bool'){ if(picked===null)return; f.value=picked==='x'?null:picked==='1'; }
-      else{ f.value=parseFieldValue(m,document.getElementById('mv')?.value||''); }
+      if(m.f==='bool'){
+        if(picked===null){
+          const c=document.querySelector('.choices');
+          if(c){ c.classList.add('err','shake'); setTimeout(()=>c.classList.remove('shake'),400); }
+          return;
+        }
+        f.value=picked==='x'?null:picked==='1';
+      } else{
+        const raw=document.getElementById('mv')?.value||'';
+        if(raw.trim()===''){
+          const inp=document.getElementById('mv');
+          if(inp){ inp.classList.add('err','shake'); inp.focus(); setTimeout(()=>inp.classList.remove('shake'),400); }
+          return;
+        }
+        f.value=parseFieldValue(m,raw);
+      }
       f.confidence=f.value==null?'missing':'verified'; f.edited_by_user=true;
       await persist(); picked=null; mi++; mi<manQ.length?render():go('dash'); }
     else if(a==='unsure'){ picked=null; mi++; mi<manQ.length?render():go('dash'); }

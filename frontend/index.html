@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Emme — Understand your health plan</title>
+<title>Emme: Understand your health plan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -314,7 +314,7 @@ details.help .body{margin-top:11px}
         <button class="btn btn-primary" onclick="go('s2')">Upload my documents</button>
         <button class="btn btn-ghost" onclick="startManual()">Enter information manually</button>
       </div>
-      <p class="note">No documents? No problem — the questions take about two minutes, and you can stop and come back any time.</p>
+      <p class="note">No documents? No problem, the questions take about two minutes, and you can stop and come back any time.</p>
     </div>
   </section>
 
@@ -350,7 +350,7 @@ details.help .body{margin-top:11px}
     <div class="card doc-card">
       <span class="eyebrow">Document 2</span>
       <h2 style="margin-top:6px">Explanation<br>of Benefits</h2>
-      <p class="doc-purpose">Shows what happened after a visit — what was charged, what insurance paid, what's left for you.</p>
+      <p class="doc-purpose">Shows what happened after a visit: what was charged, what insurance paid, what's left for you.</p>
 
       <div class="callout"><strong>This is not a bill.</strong> Nothing is due when you get one.</div>
 
@@ -390,7 +390,7 @@ details.help .body{margin-top:11px}
 
       <div class="stack" style="margin-top:18px">
         <button class="btn btn-primary" id="extractBtn" onclick="runExtraction()">Read my documents</button>
-        <button class="btn btn-quiet" onclick="startManual()">Skip — I'll answer questions instead</button>
+        <button class="btn btn-quiet" onclick="startManual()">Skip, I'll answer questions instead</button>
       </div>
     </div>
 
@@ -432,7 +432,7 @@ details.help .body{margin-top:11px}
 
     <div class="stack" style="margin-top:16px">
       <button class="btn btn-primary" id="manNext" onclick="submitManual()">Continue</button>
-      <button class="btn btn-quiet" onclick="unsureManual()">I'm not sure — skip this</button>
+      <button class="btn btn-quiet" onclick="unsureManual()">I'm not sure, skip this</button>
     </div>
     <p class="note">Skipping is fine. We'll show it as missing on your dashboard so you can add it later.</p>
   </section>
@@ -483,10 +483,10 @@ const FIELDS = {
   carrier:              {label:'Insurance company', fmt:'text'},
   plan_name:            {label:'Plan name', fmt:'text'},
   plan_type:            {label:'Plan type', fmt:'text',
-                         say:'PPO, HMO, EPO — this decides how much freedom you have to pick doctors.'},
+                         say:'PPO, HMO, EPO: this decides how much freedom you have to pick doctors.'},
   network:              {label:'Network', fmt:'text'},
   monthly_premium:      {label:'Monthly premium', fmt:'money',
-                         say:'This is what you pay every month to keep your coverage active — whether or not you see a doctor.',
+                         say:'This is what you pay every month to keep your coverage active, whether or not you see a doctor.',
                          where:['Your employer\'s benefits portal','Your insurance account','Your payslip, under deductions'],
                          q:'What do you pay each month for this plan?'},
   deductible_individual:{label:'Individual deductible', fmt:'money',
@@ -514,7 +514,7 @@ const FIELDS = {
                          where:['Page 2 of your SBC','The back of your insurance card'],
                          q:'What do you pay to see your regular doctor?'},
   copay_specialist:     {label:'Specialist visit', fmt:'money',
-                         say:'What you pay to see a specialist — a dermatologist, cardiologist, and so on.',
+                         say:'What you pay to see a specialist: a dermatologist, cardiologist, and so on.',
                          where:['Page 2 of your SBC','The back of your insurance card'],
                          q:'What do you pay to see a specialist?'},
   copay_urgent_care:    {label:'Urgent care', fmt:'money',
@@ -949,7 +949,7 @@ async function showDashboard(){
       <div class="gapcard">
         <span class="chip missing"><span class="dot missing"></span>${gaps.length} still missing</span>
         <h2 style="margin:12px 0 6px">Add the rest whenever you like.</h2>
-        <p class="say" style="color:var(--ink-2)">Your dashboard works without these — it just gets more accurate with them.</p>
+        <p class="say" style="color:var(--ink-2)">Your dashboard works without these, it just gets more accurate with them.</p>
         <button class="btn btn-ghost" style="margin-top:14px" onclick="fillGaps()">Fill in ${gaps.length} missing detail${gaps.length>1?'s':''}</button>
       </div>` : `
       <div class="card" style="margin-top:12px;border-color:var(--pine);background:var(--pine-soft)">
@@ -960,7 +960,7 @@ async function showDashboard(){
 
     <div class="sec-head"><h2>Your data</h2></div>
     <div class="card">
-      <p class="say" style="margin-bottom:14px">Everything above, as structured JSON — this is what gets sent onward.</p>
+      <p class="say" style="margin-bottom:14px">Everything above, as structured JSON, this is what gets sent onward.</p>
       <button class="btn btn-ghost" onclick="toggleJSON()" id="jsonBtn">Show JSON</button>
       <pre class="jsonbox" id="jsonbox" style="display:none"></pre>
     </div>
