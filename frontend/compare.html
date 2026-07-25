@@ -437,7 +437,10 @@ const EYE_OPEN='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stro
 const EYE_CLOSED='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.65 3.94M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
 
 const FIELDS = {
-  carrier:{l:'Insurance company'}, plan_name:{l:'Plan name'}, plan_type:{l:'Plan type'},
+  carrier:{l:'Insurance company'}, plan_name:{l:'Plan name'},
+  plan_type:{l:'Plan type',
+    say:'PPO, HMO, EPO, or HDHP. This decides how much freedom you have to pick doctors and whether you need referrals.',
+    q:'What type of plan is it: PPO, HMO, EPO, or HDHP?'},
   monthly_premium:{l:'Monthly premium',f:'money',
     say:'What you pay every month to keep your coverage active, whether or not you see a doctor.',
     q:'What do you pay each month for this plan?',
@@ -983,7 +986,7 @@ document.getElementById('chatSend').onclick=()=>{ const i=document.getElementByI
 document.getElementById('chatIn').onkeydown=e=>{ if(e.key==='Enter'){ send(e.target.value); e.target.value=''; } };
 
 /* ── actions ────────────────────────────────────────────── */
-const MANUAL_ORDER=['carrier','plan_name','monthly_premium','deductible_individual','deductible_used',
+const MANUAL_ORDER=['carrier','plan_name','plan_type','monthly_premium','deductible_individual','deductible_used',
   'oop_max_individual','oop_spent','coinsurance','copay_primary','copay_specialist','copay_urgent_care','copay_er','hsa_eligible'];
 
 function startConfirm(){ confQ=Object.keys(PLAN.fields).filter(k=>PLAN.fields[k].confidence==='needs_confirmation');
