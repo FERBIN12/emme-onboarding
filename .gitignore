@@ -9,3 +9,4 @@ build/
 *.db
 .DS_Store
 .vercel
+demo_video/

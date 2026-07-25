@@ -95,6 +95,16 @@ nav button.on::after{
    ═══════════════════════════════════════════════════════════ */
 main{max-width:1100px;margin:0 auto;padding:34px 24px 96px}
 main.narrow{max-width:470px}
+
+.howitworks{display:none}
+@media(min-width:1020px){
+  .page-layout{display:flex;gap:48px;align-items:flex-start;justify-content:center;max-width:1100px;margin:0 auto;padding:34px 24px 96px}
+  .page-layout main{margin:0;padding:0;flex:0 0 auto}
+  .howitworks{flex:0 0 380px;position:sticky;top:34px}
+  .howitworks video{width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.14);display:block}
+  .howitworks h3{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin:0 0 12px}
+  .howitworks.show{display:block}
+}
 .view{display:none}
 .view.active{display:block;animation:enter .42s var(--e-out) both}
 @keyframes enter{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -380,7 +390,13 @@ details.help .bd{margin-top:13px;animation:enter .3s var(--e-out) both}
   </div>
 </header>
 
-<main id="main"><div id="views"></div></main>
+<div class="page-layout">
+  <main id="main"><div id="views"></div></main>
+  <aside class="howitworks" id="howitworks">
+    <h3>How it works</h3>
+    <video src="how-it-works.mp4" controls playsinline preload="metadata"></video>
+  </aside>
+</div>
 
 <button class="fab gone" id="fab"><span class="pulse"></span>Ask Emme</button>
 
@@ -505,6 +521,7 @@ addEventListener('scroll',()=>HDR.classList.toggle('stuck',scrollY>6),{passive:t
 function render(){
   HDR.classList.toggle('hidden', view==='login');
   MAIN.classList.toggle('narrow', view==='login'||view==='onboard');
+  document.getElementById('howitworks').classList.toggle('show', view==='login'||view==='home');
   document.querySelectorAll('nav [data-nav]').forEach(b=>b.classList.toggle('on',
     (b.dataset.nav==='home'&&view==='home')||
     (b.dataset.nav==='plan'&&(view==='dash'||view==='onboard'))||
