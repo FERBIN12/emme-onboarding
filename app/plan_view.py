@@ -19,6 +19,9 @@ in doubt, send needs_confirmation rather than verified") vs. "verified"
 # member's manual entry or an edited confirm-card value could arrive as
 # any JSON type, and this is the last point before it lands in Postgres.
 FIELD_MAP = {
+    "name": ("identity", "name", "text"),
+    "email": ("identity", "email", "text"),
+    "zip_code": ("identity", "zipCode", "text"),
     "carrier": ("planDetails", "carrier", "text"),
     "plan_name": ("planDetails", "planName", "text"),
     "plan_type": ("planDetails", "planType", "text"),
