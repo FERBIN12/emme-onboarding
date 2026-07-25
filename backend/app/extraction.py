@@ -32,7 +32,7 @@ from pdf2image import convert_from_bytes
 
 from .schema import IntakeData
 
-_MODEL = "qwen2.5vl:7b"
+_MODEL = "llava:7b"
 
 _SCHEMA_HINT = """
 Extract any of the following fields you can find in this insurance
@@ -113,7 +113,7 @@ def _call_model(image_bytes: bytes) -> dict:
                 "images": [base64.b64encode(image_bytes).decode("utf-8")],
             }
         ],
-        options={"temperature": 0},
+        options={"temperature": 0, "num_ctx": 4096},
     )
 
     raw_text = response["message"]["content"].strip()
