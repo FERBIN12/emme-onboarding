@@ -17,6 +17,7 @@ import datetime
 from flask import Flask, request, jsonify, session as browser_session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.adapter import prune_nulls, to_session_shape
 from app.chatbot import answer_chat, answer_question
@@ -46,9 +47,18 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
+class User(db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
 class Session(db.Model):
     __tablename__ = "sessions"
     token = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     data = db.Column(db.JSON, nullable=False, default=dict)
     status = db.Column(db.String(20), nullable=False, default="in_progress")  # in_progress | completed
     # Flat frontend field keys (see app/plan_view.py FIELD_MAP) that came
@@ -80,10 +90,23 @@ def deep_merge(base, updates):
 
 
 def get_or_create_browser_session() -> Session:
-    """emme-onboarding.html (the deployed frontend) has no concept of a
-    session token -- it just calls /api/documents, /api/extraction,
-    /api/plan directly, one implicit session per browser. Track that
-    via a signed cookie, auto-creating the DB row on first hit."""
+    """Resolve the current member's plan session.
+
+    If logged in (browser_session['user_id'] set), the session is looked
+    up by user -- so the same account gets the same plan back on any
+    device, any browser, after signing in again. If not logged in, falls
+    back to an anonymous cookie-tracked session (compare.html's flow
+    before login, or index.html which has no login at all).
+    """
+    user_id = browser_session.get("user_id")
+    if user_id:
+        session = Session.query.filter_by(user_id=user_id).first()
+        if not session:
+            session = Session(token=str(uuid.uuid4()), user_id=user_id, data={}, extracted_keys=[], source_documents=[])
+            db.session.add(session)
+            db.session.commit()
+        return session
+
     token = browser_session.get("session_token")
     session = Session.query.get(token) if token else None
     if not session:
@@ -93,6 +116,57 @@ def get_or_create_browser_session() -> Session:
         db.session.commit()
         browser_session["session_token"] = token
     return session
+
+
+# ---- Auth -------------------------------------------------------------------
+# Real accounts backed by Postgres: passwords are hashed (never stored or
+# compared as plaintext), and logging back in returns the same account's
+# saved plan via get_or_create_browser_session()'s user_id lookup.
+
+@app.route("/api/signup", methods=["POST"])
+def signup():
+    body = request.get_json(force=True) or {}
+    username = (body.get("username") or "").strip().lower()
+    password = body.get("password") or ""
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters."}), 400
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "That username is already taken."}), 409
+
+    user = User(username=username, password_hash=generate_password_hash(password))
+    db.session.add(user)
+    db.session.commit()
+    browser_session["user_id"] = user.id
+    return jsonify({"ok": True, "username": user.username}), 201
+
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    body = request.get_json(force=True) or {}
+    username = (body.get("username") or "").strip().lower()
+    password = body.get("password") or ""
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"ok": False, "error": "Those details didn't match. Try again."}), 401
+
+    browser_session["user_id"] = user.id
+    return jsonify({"ok": True, "username": user.username})
+
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    browser_session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/me", methods=["GET"])
+def me():
+    user_id = browser_session.get("user_id")
+    user = User.query.get(user_id) if user_id else None
+    return jsonify({"username": user.username if user else None})
 
 
 # ---- Session lifecycle -----------------------------------------------------
@@ -269,7 +343,12 @@ def frontend_get_extraction():
 
 @app.route("/api/plan", methods=["GET"])
 def frontend_get_plan():
-    session = Session.query.get(browser_session.get("session_token")) if browser_session.get("session_token") else None
+    user_id = browser_session.get("user_id")
+    if user_id:
+        session = Session.query.filter_by(user_id=user_id).first()
+    else:
+        token = browser_session.get("session_token")
+        session = Session.query.get(token) if token else None
     if not session or not session.data:
         return jsonify(None)
     plan = to_plan_json(

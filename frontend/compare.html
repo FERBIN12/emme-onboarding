@@ -502,7 +502,7 @@ function render(){
 }
 
 /* ── login ──────────────────────────────────────────────── */
-let loginErr='';
+let loginErr='', signupMode=false;
 function vLogin(){ return `
   <div style="padding:8vh 0 0">
     <div class="stagger">
@@ -510,20 +510,18 @@ function vLogin(){ return `
         <span class="glyph" style="width:26px;height:26px;border-radius:8px;background:var(--pine);position:relative;display:inline-block"></span>
         <span style="font-family:var(--util);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--pine)">Emme</span>
       </div>
-      <h1>Welcome back.</h1>
+      <h1>${signupMode?'Create your account.':'Welcome back.'}</h1>
       <p class="say" style="margin:14px 0 28px">Your plan, your numbers, and an assistant that explains them in plain English.</p>
       <div class="card">
         <label class="lbl" for="u">Username</label>
-        <input id="u" placeholder="demo" autocomplete="username">
+        <input id="u" placeholder="username" autocomplete="username">
         <div style="height:16px"></div>
         <label class="lbl" for="p">Password</label>
-        <input id="p" type="password" placeholder="••••••••" autocomplete="current-password">
+        <input id="p" type="password" placeholder="${signupMode?'at least 6 characters':'••••••••'}" autocomplete="${signupMode?'new-password':'current-password'}">
         <div style="height:22px"></div>
-        <button class="btn wide" data-act="login">Sign in <span class="arw">→</span></button>
+        <button class="btn wide" data-act="${signupMode?'signup':'login'}">${signupMode?'Create account':'Sign in'} <span class="arw">→</span></button>
         ${loginErr?`<div class="callout" style="margin-top:16px">${esc(loginErr)}</div>`:''}
-        <div style="background:var(--pine-soft);border-radius:var(--r-sm);padding:13px 16px;margin-top:18px;font-family:var(--util);font-size:11.5px;line-height:1.8;color:var(--pine)">
-          Demo access<br>username <b>demo</b> · password <b>emme2026</b>
-        </div>
+        <button class="btn quiet wide" style="margin-top:14px" data-act="toggleSignup">${signupMode?'Already have an account? Sign in':"New here? Create an account"}</button>
       </div>
     </div>
   </div>`; }
@@ -925,11 +923,26 @@ function startManual(){ manQ=MANUAL_ORDER.filter(k=>PLAN.fields[k]?.confidence==
 function wire(){
   document.querySelectorAll('[data-act]').forEach(el=>el.onclick=async()=>{
     const a=el.dataset.act;
-    if(a==='login'){
+    if(a==='login'||a==='signup'){
       const u=document.getElementById('u').value.trim().toLowerCase(), p=document.getElementById('p').value;
-      if(u==='demo'&&p==='emme2026'){ loginErr=''; PLAN=Store.load(); go(PLAN?'home':'home'); }
-      else{ loginErr=u||p?"Those details didn't match. Try again.":'Enter both a username and a password.'; render(); }
+      if(!u||!p){ loginErr='Enter both a username and a password.'; render(); return; }
+      if(API.mode!=='live'){ loginErr='Sign-in requires the live backend.'; render(); return; }
+      try{
+        const endpoint=a==='signup'?'/api/signup':'/api/login';
+        const r=await fetch(API.base+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({username:u,password:p}),credentials:'include'});
+        const body=await r.json();
+        if(!r.ok||body.ok===false){ loginErr=body.error||"Those details didn't match. Try again."; render(); return; }
+        loginErr='';
+        try{
+          const pr=await fetch(API.base+'/api/plan',{credentials:'include'});
+          PLAN=pr.ok?await pr.json():null;
+        }catch(e){ PLAN=null; }
+        if(PLAN) Store.save(PLAN);
+        go('home');
+      }catch(e){ loginErr='Could not reach the server. Try again.'; render(); }
     }
+    else if(a==='toggleSignup'){ signupMode=!signupMode; loginErr=''; render(); }
     else if(a==='goplan'){ if(PLAN) go('dash'); else { step=0; go('onboard'); } }
     else if(a==='gocompare') go('compare');
     else if(a==='gochat') openChat();
