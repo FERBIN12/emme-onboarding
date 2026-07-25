@@ -19,7 +19,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 from app.adapter import prune_nulls, to_session_shape
-from app.chatbot import answer_question
+from app.chatbot import answer_chat, answer_question
 from app.extraction import ExtractionError, extract_from_document
 from app.plan_view import FIELD_MAP, from_plan_json, to_plan_json
 
@@ -295,15 +295,34 @@ def frontend_put_plan():
     return jsonify({"ok": True})
 
 
-# ---- Plain-language chat widget ----------------------------------------------
-# Independent of the intake flow -- if this fails, the form must keep working.
+# ---- Plain-language chat widget ("Ask Emme") ----------------------------------
+# Two callers, two shapes:
+#   onboarding side panel: {"question": "..."}          -> {"answer": "..."}
+#   compare page widget:   {"messages": [{role,content}]} -> {"reply": "..."}
+# Independent of the intake/compare flow -- if this fails, the page must
+# keep working on its own.
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
     body = request.get_json(force=True) or {}
+
+    if "messages" in body:
+        messages = body.get("messages") or []
+        if not messages:
+            return jsonify({"error": "messages is required"}), 400
+        session = get_or_create_browser_session()
+        plan = to_plan_json(
+            session.token, session.data or {}, set(session.extracted_keys or []), session.source_documents or []
+        )
+        try:
+            return jsonify({"reply": answer_chat(messages, plan.get("fields"))})
+        except Exception as e:
+            app.logger.warning("chat failed: %s", e)
+            return jsonify({"error": "The assistant is unavailable right now."}), 502
+
     question = (body.get("question") or "").strip()
     if not question:
-        return jsonify({"error": "question is required"}), 400
+        return jsonify({"error": "question or messages is required"}), 400
     return jsonify({"answer": answer_question(question)})
 
 
