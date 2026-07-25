@@ -14,31 +14,49 @@ in doubt, send needs_confirmation rather than verified") vs. "verified"
 (the member typed it in themselves).
 """
 
-# Flat frontend key -> nested (section, key) in session storage.
+# Flat frontend key -> (nested section, nested key, value type).
+# "money" fields are stored as floats rounded to 2dp, never int -- a
+# member's manual entry or an edited confirm-card value could arrive as
+# any JSON type, and this is the last point before it lands in Postgres.
 FIELD_MAP = {
-    "carrier": ("planDetails", "carrier"),
-    "plan_name": ("planDetails", "planName"),
-    "plan_type": ("planDetails", "planType"),
-    "network": ("planDetails", "network"),
-    "monthly_premium": ("costSharing", "monthlyPremium"),
-    "deductible_individual": ("costSharing", "deductibleIndividual"),
-    "deductible_used": ("costSharing", "deductibleUsed"),
-    "oop_max_individual": ("costSharing", "oopMax"),
-    "oop_spent": ("costSharing", "oopSpent"),
-    "coinsurance": ("costSharing", "coinsurance"),
-    "copay_primary": ("costSharing", "copayPrimary"),
-    "copay_specialist": ("costSharing", "copaySpecialist"),
-    "copay_urgent_care": ("costSharing", "copayUrgentCare"),
-    "copay_er": ("costSharing", "copayEr"),
-    "rx_generic": ("costSharing", "rxGeneric"),
-    "hsa_eligible": ("hsa", "hsaEligible"),
+    "carrier": ("planDetails", "carrier", "text"),
+    "plan_name": ("planDetails", "planName", "text"),
+    "plan_type": ("planDetails", "planType", "text"),
+    "network": ("planDetails", "network", "text"),
+    "monthly_premium": ("costSharing", "monthlyPremium", "money"),
+    "deductible_individual": ("costSharing", "deductibleIndividual", "money"),
+    "deductible_used": ("costSharing", "deductibleUsed", "money"),
+    "oop_max_individual": ("costSharing", "oopMax", "money"),
+    "oop_spent": ("costSharing", "oopSpent", "money"),
+    "coinsurance": ("costSharing", "coinsurance", "text"),  # free text: "20%", "$30 per visit"
+    "copay_primary": ("costSharing", "copayPrimary", "money"),
+    "copay_specialist": ("costSharing", "copaySpecialist", "money"),
+    "copay_urgent_care": ("costSharing", "copayUrgentCare", "money"),
+    "copay_er": ("costSharing", "copayEr", "money"),
+    "rx_generic": ("costSharing", "rxGeneric", "money"),
+    "hsa_eligible": ("hsa", "hsaEligible", "bool"),
 }
+
+
+def _coerce(value, value_type):
+    if value is None:
+        return None
+    if value_type == "money":
+        try:
+            return round(float(value), 2)
+        except (TypeError, ValueError):
+            return None
+    if value_type == "bool":
+        return bool(value) if not isinstance(value, str) else value.lower() in ("1", "true", "yes")
+    # text: anything JSON-serializable becomes its string form; never
+    # silently drop a value just because the client sent the wrong type.
+    return value if isinstance(value, str) else str(value)
 
 
 def to_plan_json(session_token: str, session_data: dict, extracted_keys: set, source_documents: list) -> dict:
     fields = {}
-    for flat_key, (section, nested_key) in FIELD_MAP.items():
-        value = (session_data.get(section) or {}).get(nested_key)
+    for flat_key, (section, nested_key, value_type) in FIELD_MAP.items():
+        value = _coerce((session_data.get(section) or {}).get(nested_key), value_type)
         if value is None:
             fields[flat_key] = {"value": None, "confidence": "missing", "source": None}
         elif flat_key in extracted_keys:
@@ -60,12 +78,15 @@ def to_plan_json(session_token: str, session_data: dict, extracted_keys: set, so
 
 def from_plan_json(plan_json: dict) -> dict:
     """Frontend PUTs the full plan.json back after edits. Convert to
-    nested session storage shape."""
+    nested session storage shape, coercing each value to its declared
+    type -- the client is not trusted to have sent the right type (a
+    frontend bug, a stray input, or a future caller could send a number
+    for a text field or vice versa)."""
     session_data = {}
     fields = plan_json.get("fields", {})
-    for flat_key, (section, nested_key) in FIELD_MAP.items():
+    for flat_key, (section, nested_key, value_type) in FIELD_MAP.items():
         if flat_key not in fields:
             continue
-        value = fields[flat_key].get("value")
+        value = _coerce(fields[flat_key].get("value"), value_type)
         session_data.setdefault(section, {})[nested_key] = value
     return session_data

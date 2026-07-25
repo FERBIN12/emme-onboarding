@@ -314,7 +314,7 @@ def frontend_upload_documents():
         merged_data = deep_merge(merged_data, nested)
 
         # Track which flat keys this extraction touched, for confidence tagging.
-        for flat_key, (section, nested_key) in FIELD_MAP.items():
+        for flat_key, (section, nested_key, _value_type) in FIELD_MAP.items():
             if (nested.get(section) or {}).get(nested_key) is not None:
                 extracted_keys.add(flat_key)
 

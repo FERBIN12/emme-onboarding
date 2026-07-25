@@ -456,11 +456,28 @@ const EXTRACTED = {
 let PLAN=null, view='login', step=0, confQ=[], ci=0, manQ=[], mi=0, editing=false, picked=null, spend=3000, pickedFile=null;
 
 const V=document.getElementById('views'), HDR=document.getElementById('hdr'), MAIN=document.getElementById('main');
-const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+const money=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt=(k,v)=>{ if(v==null||v==='')return '—';
   const f=FIELDS[k]?.f; return f==='money'?money(v):f==='pct'?v+'%':f==='bool'?(v?'Yes':'No'):v; };
 const val=k=>PLAN?.fields[k]?.value;
 const has=k=>val(k)!=null&&val(k)!=='';
+
+// Type-aware parsing for manual entry / edited confirm-card values.
+// Text fields (carrier, plan_name, plan_type, network -- anything with
+// no FIELDS[k].f) must stay strings; forcing Number() on them silently
+// strips every letter and corrupts the value (e.g. "Blue Cross" -> null).
+// Money fields are floats rounded to 2dp, never integers.
+function parseFieldValue(meta, raw){
+  const f=meta?.f;
+  if(f==='money'||f==='pct'){
+    const cleaned=String(raw).replace(/[^0-9.]/g,'');
+    if(cleaned==='') return null;
+    const n=Number(cleaned);
+    return Number.isFinite(n) ? Math.round(n*100)/100 : null;
+  }
+  const trimmed=String(raw).trim();
+  return trimmed===''?null:trimmed;
+}
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -649,7 +666,7 @@ function vOnboard(){
     <h1>Does this look right?</h1>
     <div class="card" style="margin:18px 0">
       <div style="font-size:15px;font-weight:600;color:var(--ink-2)">${m.l}</div>
-      <div class="big-v num">${editing?`<input id="ev" value="${f.value}" inputmode="decimal">`:fmt(k,f.value)}</div>
+      <div class="big-v num">${editing?`<input id="ev" value="${esc(f.value??'')}" inputmode="${m.f==='money'||m.f==='pct'?'decimal':'text'}">`:fmt(k,f.value)}</div>
       <p class="say">${m.say||''}</p>
       <div class="source"><span class="dot c"></span>${src}</div>
     </div>
@@ -670,7 +687,7 @@ function vOnboard(){
              <button class="choice" data-act="pick" data-v="1">Yes</button>
              <button class="choice" data-act="pick" data-v="0">No</button>
              <button class="choice" data-act="pick" data-v="x">Not sure</button></div>`
-        : `<input class="q-in" id="mv" inputmode="decimal" placeholder="${m.f==='pct'?'0%':'$0'}" aria-label="${m.l}">`}
+        : `<input class="q-in" id="mv" inputmode="${m.f==='money'||m.f==='pct'?'decimal':'text'}" placeholder="${m.f==='pct'?'0%':m.f==='money'?'$0.00':''}" aria-label="${m.l}">`}
       ${m.w?`<details class="help"><summary>Where do I find this?</summary>
         <div class="bd"><div class="where"><ul>${m.w.map(x=>`<li>${x}</li>`).join('')}</ul></div></div></details>`:''}
     </div>
@@ -958,8 +975,8 @@ function wire(){
       await persist(); startManual(); }
     else if(a==='startconf') startConfirm();
     else if(a==='edit'){ editing=true; render(); setTimeout(()=>document.getElementById('ev')?.select(),40); }
-    else if(a==='saveedit'){ const v=document.getElementById('ev').value.replace(/[^0-9.]/g,'');
-      if(v!=='') PLAN.fields[confQ[ci]].value=Number(v); editing=false; render(); }
+    else if(a==='saveedit'){ const k=confQ[ci], m=FIELDS[k], raw=document.getElementById('ev').value;
+      PLAN.fields[k].value=parseFieldValue(m,raw); editing=false; render(); }
     else if(a==='accept'){ const f=PLAN.fields[confQ[ci]];
       f.confidence=f.value==null?'missing':'verified'; f.edited_by_user=true;
       await persist(); editing=false; ci++; ci<confQ.length?render():startManual(); }
@@ -968,8 +985,7 @@ function wire(){
       el.classList.add('sel'); picked=el.dataset.v; }
     else if(a==='submitman'){ const k=manQ[mi], m=FIELDS[k], f=PLAN.fields[k];
       if(m.f==='bool'){ if(picked===null)return; f.value=picked==='x'?null:picked==='1'; }
-      else{ const v=(document.getElementById('mv')?.value||'').replace(/[^0-9.]/g,'');
-        f.value=v===''?null:Number(v); }
+      else{ f.value=parseFieldValue(m,document.getElementById('mv')?.value||''); }
       f.confidence=f.value==null?'missing':'verified'; f.edited_by_user=true;
       await persist(); picked=null; mi++; mi<manQ.length?render():go('dash'); }
     else if(a==='unsure'){ picked=null; mi++; mi<manQ.length?render():go('dash'); }
