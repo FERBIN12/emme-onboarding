@@ -8,7 +8,32 @@ level. "Is this submittable" is a separate check, not a schema constraint.
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
+from typing_extensions import Annotated
+
+
+def _clean_money(v):
+    """LLM extraction sometimes returns dollar-formatted strings like
+    "$500.00" or "1,234.56" instead of a bare number. Strip formatting
+    before Pydantic's float parser sees it."""
+    if isinstance(v, str):
+        v = v.replace("$", "").replace(",", "").strip()
+        if v == "":
+            return None
+    return v
+
+
+def _stringify(v):
+    """Cost-sharing fields like coinsurance/copays are free-text ("20%",
+    "$30 per visit") but the model sometimes returns a bare number when
+    the document only shows a dollar amount. Normalize to string either way."""
+    if v is None or isinstance(v, str):
+        return v
+    return str(v)
+
+
+Money = Annotated[Optional[float], BeforeValidator(_clean_money)]
+FlexibleText = Annotated[Optional[str], BeforeValidator(_stringify)]
 
 
 class PlanType(str, Enum):
@@ -43,21 +68,21 @@ class PlanDetails(BaseModel):
 
 
 class CostSharing(BaseModel):
-    deductible_individual: Optional[float] = None
-    deductible_family: Optional[float] = None
-    ytd_deductible_met: Optional[float] = None
-    oop_max: Optional[float] = None
-    oop_met_ytd: Optional[float] = None
-    copays: Optional[str] = None
-    coinsurance: Optional[str] = None
-    monthly_premium: Optional[float] = None
+    deductible_individual: Money = None
+    deductible_family: Money = None
+    ytd_deductible_met: Money = None
+    oop_max: Money = None
+    oop_met_ytd: Money = None
+    copays: FlexibleText = None
+    coinsurance: FlexibleText = None
+    monthly_premium: Money = None
 
 
 class HSA(BaseModel):
     hsa_eligible: Optional[bool] = None
-    current_balance: Optional[float] = None
-    ytd_contributions: Optional[float] = None
-    employer_contribution: Optional[float] = None
+    current_balance: Money = None
+    ytd_contributions: Money = None
+    employer_contribution: Money = None
 
 
 class Prescription(BaseModel):

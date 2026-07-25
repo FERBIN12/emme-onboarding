@@ -32,7 +32,7 @@ from pdf2image import convert_from_bytes
 
 from .schema import IntakeData
 
-_MODEL = "llava:7b"
+_MODEL = "qwen2.5vl:3b"
 
 _SCHEMA_HINT = """
 Extract any of the following fields you can find in this insurance
