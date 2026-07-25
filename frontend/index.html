@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Emme — Understand your health plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   Palette: sage paper, pine ink. Confidence is the only place
+   colour is allowed to speak — verified/check/missing.
+   Type: grotesque asks, serif explains, mono cites the source.
+   ============================================================ */
+:root{
+  --sage:#EDF1EA;
+  --sage-deep:#DFE6DB;
+  --paper:#FFFFFF;
+  --ink:#15241D;
+  --ink-2:#54685F;
+  --ink-3:#84968C;
+  --pine:#1D6B4F;
+  --pine-soft:#E2EFE8;
+  --amber:#9C6B14;
+  --amber-soft:#F7EEDA;
+  --clay:#A9503A;
+  --clay-soft:#F6E5E0;
+  --rule:#DBE3D8;
+
+  --display:'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
+  --read:'Newsreader', Georgia, serif;
+  --util:'Roboto Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --r:18px;
+  --pad:20px;
+  --ease:cubic-bezier(.22,.7,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--sage-deep);
+  color:var(--ink);
+  font-family:var(--display);
+  font-size:16px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.frame{
+  max-width:430px;
+  margin:0 auto;
+  min-height:100vh;
+  background:var(--sage);
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+@media(min-width:520px){
+  .frame{min-height:100vh;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
+}
+
+/* ---------- progress rail ---------- */
+.rail{position:sticky;top:0;z-index:20;background:var(--sage);padding:14px var(--pad) 10px}
+.rail.hide{display:none}
+.rail-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.rail-step{font-family:var(--util);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.rail-back{
+  font-family:var(--util);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-2);background:none;border:0;cursor:pointer;padding:4px 0;
+}
+.rail-back:hover{color:var(--ink)}
+.rail-track{height:2px;background:var(--sage-deep);border-radius:2px;overflow:hidden}
+.rail-fill{height:100%;background:var(--pine);width:0%;transition:width .5s var(--ease)}
+
+/* ---------- screens ---------- */
+.screen{display:none;flex:1;flex-direction:column;padding:0 var(--pad) 40px}
+.screen.active{display:flex;animation:rise .38s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------- type ---------- */
+.eyebrow{font-family:var(--util);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-2)}
+h1{font-family:var(--display);font-size:31px;line-height:1.1;letter-spacing:-.028em;font-weight:700}
+h2{font-family:var(--display);font-size:21px;line-height:1.18;letter-spacing:-.02em;font-weight:700}
+h3{font-family:var(--display);font-size:16px;letter-spacing:-.01em;font-weight:700}
+.say{font-family:var(--read);font-size:16.5px;line-height:1.52;color:var(--ink-2)}
+.say em{font-style:italic}
+.big{font-family:var(--display);font-weight:700;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+
+/* ---------- cards ---------- */
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);padding:18px}
+.card + .card{margin-top:12px}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  font-family:var(--display);font-size:15.5px;font-weight:600;letter-spacing:-.01em;
+  padding:15px 18px;border-radius:13px;border:1px solid transparent;cursor:pointer;
+  transition:transform .12s var(--ease),background .15s,border-color .15s;
+}
+.btn:active{transform:scale(.985)}
+.btn-primary{background:var(--pine);color:#fff}
+.btn-primary:hover{background:#175840}
+.btn-ghost{background:var(--paper);color:var(--ink);border-color:var(--rule)}
+.btn-ghost:hover{border-color:#c3d0be}
+.btn-quiet{background:none;color:var(--ink-2);font-weight:500;font-size:14px;padding:12px}
+.btn-quiet:hover{color:var(--ink)}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+.stack{display:flex;flex-direction:column;gap:10px}
+:focus-visible{outline:2px solid var(--pine);outline-offset:2px;border-radius:6px}
+
+/* ---------- CONFIDENCE TOKEN — the signature ---------- */
+.dot{
+  width:15px;height:15px;border-radius:50%;flex:none;position:relative;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.dot.verified{background:var(--pine)}
+.dot.verified::after{
+  content:'';width:6px;height:3px;border-left:1.7px solid #fff;border-bottom:1.7px solid #fff;
+  transform:rotate(-45deg) translate(.5px,-.5px);
+}
+.dot.check{border:2px solid var(--amber);background:var(--amber-soft)}
+.dot.missing{border:1.5px dashed var(--clay);background:transparent}
+
+.chip{
+  display:inline-flex;align-items:center;gap:7px;padding:5px 10px 5px 7px;border-radius:99px;
+  font-family:var(--util);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+}
+.chip.verified{background:var(--pine-soft);color:var(--pine)}
+.chip.check{background:var(--amber-soft);color:var(--amber)}
+.chip.missing{background:var(--clay-soft);color:var(--clay)}
+
+/* provenance line */
+.source{
+  font-family:var(--util);font-size:11px;color:var(--ink-2);
+  border-top:1px solid var(--rule);padding-top:12px;margin-top:16px;
+  display:flex;align-items:center;gap:7px;
+}
+
+/* ---------- screen 1 ---------- */
+.hero{flex:1;display:flex;flex-direction:column;justify-content:center;padding:34px 0 26px}
+.mark{
+  font-family:var(--util);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--pine);margin-bottom:auto;padding-top:20px;
+}
+.hero h1{margin-bottom:14px}
+.hero .say{margin-bottom:26px}
+.note{
+  font-family:var(--read);font-size:14.5px;color:var(--ink-2);text-align:center;
+  margin-top:16px;line-height:1.5;
+}
+
+/* ---------- screen 2 ---------- */
+.doc-card{position:relative}
+.doc-card h2{margin-bottom:6px}
+.doc-purpose{font-family:var(--read);font-size:16px;color:var(--ink-2);margin-bottom:16px}
+.mini-label{font-family:var(--util);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
+.pill-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.pill{
+  font-size:13px;padding:5px 11px;border-radius:99px;
+  background:var(--sage);color:var(--ink-2);border:1px solid var(--rule);
+}
+.where{background:var(--sage);border-radius:12px;padding:13px 15px;margin-bottom:16px}
+.where ul{list-style:none;margin-top:7px}
+.where li{font-family:var(--read);font-size:15px;color:var(--ink-2);padding:2.5px 0 2.5px 15px;position:relative}
+.where li::before{content:'';position:absolute;left:2px;top:12px;width:4px;height:1px;background:var(--ink-2)}
+.callout{
+  font-family:var(--read);font-size:15px;color:var(--clay);background:var(--clay-soft);
+  border-radius:10px;padding:10px 13px;margin-bottom:16px;
+}
+
+/* ---------- screen 3 : upload + processing ---------- */
+.drop{
+  border:1.5px dashed #C0CDBA;border-radius:var(--r);background:var(--paper);
+  padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;
+}
+.drop:hover,.drop.over{border-color:var(--pine);background:var(--pine-soft)}
+.drop-icon{font-size:26px;margin-bottom:10px;opacity:.5}
+.formats{font-family:var(--util);font-size:10.5px;letter-spacing:.09em;color:var(--ink-2);margin-top:10px}
+.filelist{margin-top:12px}
+.fileitem{
+  display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--rule);
+  border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:8px;
+}
+.fileitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.proc{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:40px 0}
+.proc-line{
+  display:flex;align-items:center;gap:12px;font-family:var(--read);font-size:17px;
+  color:var(--ink-3);opacity:.35;transition:opacity .4s var(--ease),color .4s;
+}
+.proc-line.on{opacity:1;color:var(--ink-2)}
+.proc-line.done{opacity:1;color:var(--ink)}
+.spinner{
+  width:15px;height:15px;flex:none;border-radius:50%;
+  border:2px solid var(--sage-deep);border-top-color:var(--pine);animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.tally{display:flex;flex-direction:column;gap:1px;background:var(--rule);border-radius:14px;overflow:hidden;margin:18px 0 22px}
+.tally-row{display:flex;align-items:center;gap:11px;background:var(--paper);padding:14px 16px}
+.tally-row .n{font-family:var(--display);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;min-width:22px}
+.tally-row .t{font-family:var(--read);font-size:15.5px;color:var(--ink-2)}
+
+/* ---------- screen 4 : confirm ---------- */
+.counter{font-family:var(--util);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.confirm-card{background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);padding:22px;margin:14px 0 16px}
+.confirm-card .field-label{font-size:15px;font-weight:600;color:var(--ink-2);margin:12px 0 2px}
+.confirm-card .value{font-size:44px;line-height:1.05;margin:2px 0 14px}
+.confirm-card .value input{
+  font-family:var(--display);font-weight:700;font-size:40px;letter-spacing:-.035em;
+  border:0;border-bottom:2px solid var(--pine);background:none;width:100%;color:var(--ink);
+  padding:0 0 4px;font-variant-numeric:tabular-nums;
+}
+.confirm-card .value input:focus{outline:none}
+
+/* ---------- screen 5 : manual ---------- */
+.q-input{
+  width:100%;font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:-.03em;
+  border:0;border-bottom:2px solid var(--rule);background:none;padding:6px 0 8px;color:var(--ink);
+  font-variant-numeric:tabular-nums;transition:border-color .2s;
+}
+.q-input:focus{outline:none;border-bottom-color:var(--pine)}
+.q-input::placeholder{color:#B7C4B3}
+details.help{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px}
+details.help summary{
+  cursor:pointer;list-style:none;font-family:var(--util);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--pine);display:flex;align-items:center;gap:6px;
+}
+details.help summary::-webkit-details-marker{display:none}
+details.help summary::after{content:'+';font-size:14px;margin-left:auto}
+details.help[open] summary::after{content:'–'}
+details.help .body{margin-top:11px}
+.choice-row{display:flex;gap:9px;margin-top:6px}
+.choice{
+  flex:1;padding:15px;border-radius:13px;border:1.5px solid var(--rule);background:var(--paper);
+  font-family:var(--display);font-size:15.5px;font-weight:600;cursor:pointer;transition:.15s;
+}
+.choice:hover{border-color:#c3d0be}
+.choice.sel{border-color:var(--pine);background:var(--pine-soft);color:var(--pine)}
+
+/* ---------- screen 6 : dashboard ---------- */
+.dash-head{padding:6px 0 18px}
+.dash-head .carrier{font-family:var(--read);font-size:16px;color:var(--ink-2);margin-top:4px}
+.snapshot{background:var(--ink);color:#fff;border-radius:22px;padding:22px;margin-bottom:14px}
+.snapshot .eyebrow{color:#8FAE9F}
+.snap-hero{margin:14px 0 20px}
+.snap-hero .n{font-size:46px;line-height:1;color:#fff}
+.snap-hero .l{font-family:var(--read);font-size:15px;color:#A8C0B4;margin-top:6px}
+.meter{margin-bottom:16px}
+.meter-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.meter-top .l{font-size:13.5px;font-weight:600;color:#D6E3DC}
+.meter-top .v{font-family:var(--util);font-size:11.5px;color:#8FAE9F;font-variant-numeric:tabular-nums}
+.meter-track{height:7px;background:rgba(255,255,255,.14);border-radius:99px;overflow:hidden}
+.meter-fill{height:100%;border-radius:99px;width:0;transition:width .9s var(--ease)}
+.meter-fill.a{background:#5FD3A0}
+.meter-fill.b{background:#E8C46B}
+.snap-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,.13);border-radius:14px;overflow:hidden;margin-top:18px}
+.snap-cell{background:var(--ink);padding:14px 15px}
+.snap-cell .l{font-family:var(--util);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:#8FAE9F;margin-bottom:5px}
+.snap-cell .v{font-size:19px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 11px}
+.cov-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cov{background:var(--paper);border:1px solid var(--rule);border-radius:15px;padding:15px}
+.cov .l{font-size:13px;color:var(--ink-2);font-weight:600;margin-bottom:7px;line-height:1.25}
+.cov .v{font-size:24px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.cov .sub{font-family:var(--read);font-size:13px;color:var(--ink-2);margin-top:3px}
+.cov.gap{border-style:dashed;border-color:#C9B0A7;background:transparent;cursor:pointer}
+.cov.gap .v{color:var(--clay);font-size:15px;font-weight:600;letter-spacing:0}
+
+.gapcard{border:1.5px dashed var(--clay);background:var(--clay-soft);border-radius:var(--r);padding:18px;margin-top:12px}
+.jsonbox{
+  background:var(--ink);color:#B9D6C8;border-radius:14px;padding:16px;margin-top:12px;
+  font-family:var(--util);font-size:11px;line-height:1.6;overflow:auto;max-height:340px;white-space:pre;
+}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translate(-50%,14px);
+  background:var(--ink);color:#fff;font-family:var(--util);font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;padding:9px 16px;border-radius:99px;opacity:0;pointer-events:none;
+  transition:opacity .3s,transform .3s var(--ease);z-index:60;display:flex;align-items:center;gap:7px;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast::before{content:'';width:5px;height:5px;border-radius:50%;background:#5FD3A0}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <div class="rail hide" id="rail">
+    <div class="rail-top">
+      <button class="rail-back" id="railBack" type="button">← Back</button>
+      <span class="rail-step" id="railStep"></span>
+    </div>
+    <div class="rail-track"><div class="rail-fill" id="railFill"></div></div>
+  </div>
+
+  <!-- ═══════════ SCREEN 1 — WELCOME ═══════════ -->
+  <section class="screen active" id="s1">
+    <div class="hero">
+      <div class="mark">Emme</div>
+      <h1>Understand your health plan in minutes.</h1>
+      <p class="say">Upload your insurance documents or answer a few simple questions. We'll organise everything into one dashboard you can actually read.</p>
+      <div class="stack">
+        <button class="btn btn-primary" onclick="go('s2')">Upload my documents</button>
+        <button class="btn btn-ghost" onclick="startManual()">Enter information manually</button>
+      </div>
+      <p class="note">No documents? No problem — the questions take about two minutes, and you can stop and come back any time.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════ SCREEN 2 — FIND YOUR DOCUMENTS ═══════════ -->
+  <section class="screen" id="s2">
+    <h1 style="margin:6px 0 10px">Two documents do most of the work.</h1>
+    <p class="say" style="margin-bottom:20px">Here's what each one is and where people usually find it. You only need one to get started.</p>
+
+    <div class="card doc-card">
+      <span class="eyebrow">Document 1</span>
+      <h2 style="margin-top:6px">Summary of Benefits<br>and Coverage</h2>
+      <p class="doc-purpose">Explains what your plan covers and what you'll pay.</p>
+
+      <div class="mini-label">Usually contains</div>
+      <div class="pill-wrap">
+        <span class="pill">Deductible</span><span class="pill">Copays</span>
+        <span class="pill">Coinsurance</span><span class="pill">Out-of-pocket max</span>
+        <span class="pill">Covered services</span>
+      </div>
+
+      <div class="where">
+        <div class="mini-label">Where to find it</div>
+        <ul>
+          <li>Your employer's benefits portal</li>
+          <li>Your insurance company's website</li>
+          <li>Your insurance app</li>
+          <li>The paperwork from when you enrolled</li>
+        </ul>
+      </div>
+      <button class="btn btn-primary" onclick="go('s3')">Upload my SBC</button>
+    </div>
+
+    <div class="card doc-card">
+      <span class="eyebrow">Document 2</span>
+      <h2 style="margin-top:6px">Explanation<br>of Benefits</h2>
+      <p class="doc-purpose">Shows what happened after a visit — what was charged, what insurance paid, what's left for you.</p>
+
+      <div class="callout"><strong>This is not a bill.</strong> Nothing is due when you get one.</div>
+
+      <div class="mini-label">Usually contains</div>
+      <div class="pill-wrap">
+        <span class="pill">Provider charges</span><span class="pill">Insurance payment</span>
+        <span class="pill">Your responsibility</span><span class="pill">Deductible applied</span>
+      </div>
+
+      <div class="where">
+        <div class="mini-label">Where to find it</div>
+        <ul>
+          <li>Your insurance portal, under claims</li>
+          <li>Your insurance app</li>
+          <li>Mailed to you after a visit</li>
+        </ul>
+      </div>
+      <button class="btn btn-primary" onclick="go('s3')">Upload my EOB</button>
+    </div>
+
+    <button class="btn btn-quiet" style="margin-top:14px" onclick="startManual()">I don't have either document →</button>
+  </section>
+
+  <!-- ═══════════ SCREEN 3 — UPLOAD / PROCESSING / RESULT ═══════════ -->
+  <section class="screen" id="s3">
+    <div id="s3-upload">
+      <h1 style="margin:6px 0 10px">Add your documents.</h1>
+      <p class="say" style="margin-bottom:18px">A photo works fine. We'll read them and pull out the numbers so you don't have to.</p>
+
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files to upload">
+        <div class="drop-icon">📄</div>
+        <h3>Choose a file or take a photo</h3>
+        <div class="formats">PDF · PNG · JPEG · CAMERA</div>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg" hidden>
+      <div class="filelist" id="filelist"></div>
+
+      <div class="stack" style="margin-top:18px">
+        <button class="btn btn-primary" id="extractBtn" onclick="runExtraction()">Read my documents</button>
+        <button class="btn btn-quiet" onclick="startManual()">Skip — I'll answer questions instead</button>
+      </div>
+    </div>
+
+    <div id="s3-proc" style="display:none">
+      <div class="proc" id="procLines"></div>
+    </div>
+
+    <div id="s3-result" style="display:none">
+      <h1 style="margin:6px 0 10px" id="resultTitle"></h1>
+      <p class="say">Here's what we could and couldn't read. You'll get the last word on all of it.</p>
+      <div class="tally" id="tally"></div>
+      <button class="btn btn-primary" onclick="startConfirm()">Review what we found</button>
+    </div>
+  </section>
+
+  <!-- ═══════════ SCREEN 4 — CONFIRM ═══════════ -->
+  <section class="screen" id="s4">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 4px">
+      <span class="counter" id="confCounter"></span>
+      <span class="chip check"><span class="dot check"></span>Worth a check</span>
+    </div>
+    <h1 style="margin-bottom:2px">Does this look right?</h1>
+
+    <div class="confirm-card" id="confCard"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="editField()">Edit</button>
+      <button class="btn btn-primary" onclick="acceptField()">Looks correct</button>
+    </div>
+    <button class="btn btn-quiet" style="margin-top:8px" onclick="skipField()">Skip for now</button>
+  </section>
+
+  <!-- ═══════════ SCREEN 5 — MANUAL QUESTIONS ═══════════ -->
+  <section class="screen" id="s5">
+    <span class="counter" id="manCounter" style="display:block;margin:6px 0 8px"></span>
+    <h1 id="manIntro" style="margin-bottom:20px"></h1>
+
+    <div class="card" id="manCard"></div>
+
+    <div class="stack" style="margin-top:16px">
+      <button class="btn btn-primary" id="manNext" onclick="submitManual()">Continue</button>
+      <button class="btn btn-quiet" onclick="unsureManual()">I'm not sure — skip this</button>
+    </div>
+    <p class="note">Skipping is fine. We'll show it as missing on your dashboard so you can add it later.</p>
+  </section>
+
+  <!-- ═══════════ SCREEN 6 — DASHBOARD ═══════════ -->
+  <section class="screen" id="s6">
+    <div id="dash"></div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast">Saved</div>
+
+<script>
+/* ============================================================================
+   EMME ONBOARDING — PROTOTYPE
+   ----------------------------------------------------------------------------
+   BACKEND TEAM: everything you need to touch is in the DataSource block below.
+   Flip MODE to 'api' and implement the four endpoints. Nothing else changes.
+
+   CANONICAL OBJECT — plan.json
+   {
+     "session_id": "string",
+     "updated_at": "ISO-8601",
+     "source_documents": [{ "id","filename","doc_type":"SBC|EOB","pages":int }],
+     "fields": {
+       "<field_key>": {
+         "value": number | string | boolean | null,
+         "confidence": "verified" | "needs_confirmation" | "missing",
+         "source": { "doc_id":"...", "doc_type":"SBC", "page": 2 } | null,
+         "edited_by_user": bool
+       }
+     }
+   }
+   FIELD KEYS (stable — please don't rename):
+     carrier, plan_name, plan_type, network,
+     monthly_premium, deductible_individual, deductible_used,
+     oop_max_individual, oop_spent, coinsurance,
+     copay_primary, copay_specialist, copay_urgent_care, copay_er,
+     rx_generic, hsa_eligible
+   ============================================================================ */
+
+const MODE = 'mock';           // <-- 'mock' | 'api'
+const API_BASE = '/api';
+
+/* ---- field dictionary: labels, plain-language copy, formatting ---- */
+const FIELDS = {
+  carrier:              {label:'Insurance company', fmt:'text'},
+  plan_name:            {label:'Plan name', fmt:'text'},
+  plan_type:            {label:'Plan type', fmt:'text',
+                         say:'PPO, HMO, EPO — this decides how much freedom you have to pick doctors.'},
+  network:              {label:'Network', fmt:'text'},
+  monthly_premium:      {label:'Monthly premium', fmt:'money',
+                         say:'This is what you pay every month to keep your coverage active — whether or not you see a doctor.',
+                         where:['Your employer\'s benefits portal','Your insurance account','Your payslip, under deductions'],
+                         q:'What do you pay each month for this plan?'},
+  deductible_individual:{label:'Individual deductible', fmt:'money',
+                         say:'The amount you pay yourself before your insurance starts sharing the cost of most covered care.',
+                         where:['Page 1 of your SBC','Your insurance account'],
+                         q:'What is your deductible for the year?'},
+  deductible_used:      {label:'Deductible used so far', fmt:'money',
+                         say:'How much of your deductible you\'ve already paid this year. It resets each plan year.',
+                         where:['Your insurance account, under "plan balances"','Your most recent Explanation of Benefits'],
+                         q:'How much of your deductible have you already paid this year?'},
+  oop_max_individual:   {label:'Out-of-pocket maximum', fmt:'money',
+                         say:'The most you will pay for covered care this year. After this, your plan covers 100%.',
+                         where:['Page 1 of your SBC'],
+                         q:'What is the most you\'d pay in a year?'},
+  oop_spent:            {label:'Spent toward your maximum', fmt:'money',
+                         say:'Everything you\'ve paid so far this year that counts toward that ceiling.',
+                         where:['Your insurance account, under "plan balances"'],
+                         q:'How much have you spent on care this year?'},
+  coinsurance:          {label:'Your share after the deductible', fmt:'pct',
+                         say:'Once your deductible is paid, you and your plan split the bill. 20% means you pay 20 and your plan pays 80.',
+                         where:['Page 1 of your SBC, next to each service'],
+                         q:'After your deductible, what share of the bill do you pay?'},
+  copay_primary:        {label:'Regular doctor visit', fmt:'money',
+                         say:'A flat fee you pay when you see your usual doctor.',
+                         where:['Page 2 of your SBC','The back of your insurance card'],
+                         q:'What do you pay to see your regular doctor?'},
+  copay_specialist:     {label:'Specialist visit', fmt:'money',
+                         say:'What you pay to see a specialist — a dermatologist, cardiologist, and so on.',
+                         where:['Page 2 of your SBC','The back of your insurance card'],
+                         q:'What do you pay to see a specialist?'},
+  copay_urgent_care:    {label:'Urgent care', fmt:'money',
+                         say:'What a walk-in urgent care visit costs you.',
+                         where:['Page 2 of your SBC'],
+                         q:'What do you pay at urgent care?'},
+  copay_er:             {label:'Emergency room', fmt:'money',
+                         say:'What an emergency room visit costs you. Often waived if you\'re admitted.',
+                         where:['Page 2 of your SBC'],
+                         q:'What do you pay at the emergency room?'},
+  rx_generic:           {label:'Generic prescriptions', fmt:'money',
+                         say:'What you pay for a common generic medication.',
+                         where:['The prescription section of your SBC'],
+                         q:'What do you pay for a generic prescription?'},
+  hsa_eligible:         {label:'Health Savings Account', fmt:'bool',
+                         say:'An HSA lets you set aside money for medical costs before tax. Only certain plans allow one.',
+                         where:['Your benefits portal','Your enrolment paperwork'],
+                         q:'Can you put money into a Health Savings Account?'}
+};
+
+function fmt(key, v){
+  if(v===null || v===undefined || v==='') return '—';
+  const f = FIELDS[key]?.fmt;
+  if(f==='money')  return '$' + Number(v).toLocaleString('en-US');
+  if(f==='pct')    return Number(v) + '%';
+  if(f==='bool')   return v ? 'Yes' : 'No';
+  return v;
+}
+
+/* ============================================================================
+   DATA LAYER — the one swappable seam
+   ============================================================================ */
+const MOCK_EXTRACTION = {
+  session_id:'demo-session',
+  source_documents:[{id:'d1',filename:'SBC_2026_GoldPPO.pdf',doc_type:'SBC',pages:8}],
+  fields:{
+    carrier:              {value:'Blue Cross Blue Shield', confidence:'verified', source:{doc_type:'SBC',page:1}},
+    plan_name:            {value:'Gold PPO',    confidence:'verified', source:{doc_type:'SBC',page:1}},
+    plan_type:            {value:'PPO',         confidence:'verified', source:{doc_type:'SBC',page:1}},
+    network:              {value:'In-network',  confidence:'verified', source:{doc_type:'SBC',page:1}},
+    deductible_individual:{value:2000,          confidence:'verified', source:{doc_type:'SBC',page:2}},
+    deductible_used:      {value:650,           confidence:'verified', source:{doc_type:'EOB',page:1}},
+    oop_max_individual:   {value:6500,          confidence:'verified', source:{doc_type:'SBC',page:2}},
+    oop_spent:            {value:940,           confidence:'verified', source:{doc_type:'EOB',page:1}},
+    copay_primary:        {value:25,            confidence:'verified', source:{doc_type:'SBC',page:3}},
+    copay_urgent_care:    {value:75,            confidence:'verified', source:{doc_type:'SBC',page:3}},
+    copay_er:             {value:400,           confidence:'verified', source:{doc_type:'SBC',page:3}},
+    rx_generic:           {value:10,            confidence:'verified', source:{doc_type:'SBC',page:5}},
+    coinsurance:          {value:20,            confidence:'needs_confirmation', source:{doc_type:'SBC',page:2}},
+    copay_specialist:     {value:50,            confidence:'needs_confirmation', source:{doc_type:'SBC',page:3}},
+    monthly_premium:      {value:null,          confidence:'missing', source:null},
+    hsa_eligible:         {value:null,          confidence:'missing', source:null}
+  }
+};
+
+const EMPTY_PLAN = () => ({
+  session_id:'demo-session', updated_at:new Date().toISOString(),
+  source_documents:[],
+  fields:Object.fromEntries(Object.keys(FIELDS).map(k=>[k,{value:null,confidence:'missing',source:null}]))
+});
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+
+const DataSource = {
+  async uploadDocuments(files){
+    if(MODE==='mock'){ await wait(500); return {ok:true, uploaded:files.map(f=>f.name)}; }
+    const fd = new FormData(); files.forEach(f=>fd.append('files',f));
+    return (await fetch(`${API_BASE}/documents`,{method:'POST',body:fd})).json();
+  },
+  async getExtraction(){
+    if(MODE==='mock'){ await wait(2600); return structuredClone(MOCK_EXTRACTION); }
+    return (await fetch(`${API_BASE}/extraction`)).json();
+  },
+  async savePlan(plan){
+    Store.write(plan);                                   // always keep a local copy
+    if(MODE==='mock'){ return {ok:true}; }
+    return (await fetch(`${API_BASE}/plan`,{
+      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(plan)
+    })).json();
+  },
+  async getPlan(){
+    if(MODE==='mock'){ return Store.read(); }
+    return (await fetch(`${API_BASE}/plan`)).json();
+  }
+};
+
+/* ---- persistence: localStorage where available, memory where not ---- */
+const Store = (()=>{
+  let mem = null;
+  const KEY = 'emme.plan.v1';
+  return {
+    write(p){ mem=p; try{ localStorage.setItem(KEY, JSON.stringify(p)); }catch(e){} },
+    read(){ try{ const r=localStorage.getItem(KEY); if(r) return JSON.parse(r); }catch(e){} return mem; },
+    clear(){ mem=null; try{ localStorage.removeItem(KEY); }catch(e){} }
+  };
+})();
+
+/* ============================================================================
+   STATE + NAVIGATION
+   ============================================================================ */
+let PLAN = null;
+let queue = [], qi = 0;               // fields awaiting confirmation
+let manQueue = [], mi = 0;            // fields awaiting manual entry
+let manualOnly = false;
+let pickedFiles = [];
+let history = [];
+
+const STEPS = {s1:['',0], s2:['Your documents',18], s3:['Reading',38],
+               s4:['Confirming',60], s5:['A few details',82], s6:['Your plan',100]};
+
+function go(id, push=true){
+  const cur = document.querySelector('.screen.active');
+  if(cur){ if(push) history.push(cur.id); cur.classList.remove('active'); }
+  const next = document.getElementById(id);
+  next.classList.add('active');
+  window.scrollTo({top:0,behavior:'instant'});
+
+  const rail = document.getElementById('rail');
+  if(id==='s1'){ rail.classList.add('hide'); }
+  else{
+    rail.classList.remove('hide');
+    document.getElementById('railStep').textContent = STEPS[id][0];
+    document.getElementById('railFill').style.width = STEPS[id][1] + '%';
+    document.getElementById('railBack').style.visibility = id==='s6' ? 'hidden' : 'visible';
+  }
+}
+document.getElementById('railBack').onclick = ()=>{
+  const prev = history.pop(); if(prev) go(prev, false);
+};
+
+let toastTimer;
+function saved(msg='Saved'){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 1700);
+}
+async function persist(){ PLAN.updated_at = new Date().toISOString(); await DataSource.savePlan(PLAN); saved(); }
+
+/* ============================================================================
+   SCREEN 3 — UPLOAD
+   ============================================================================ */
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+drop.onclick = ()=>fileInput.click();
+drop.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileInput.click(); } };
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop', e=>addFiles([...e.dataTransfer.files]));
+fileInput.onchange = e => addFiles([...e.target.files]);
+
+function addFiles(list){
+  pickedFiles = pickedFiles.concat(list);
+  document.getElementById('filelist').innerHTML = pickedFiles.map((f,i)=>`
+    <div class="fileitem">
+      <span class="dot verified"></span>
+      <span class="nm">${f.name}</span>
+      <button class="btn-quiet" style="padding:0;width:auto;font-size:13px" onclick="removeFile(${i})">Remove</button>
+    </div>`).join('');
+}
+function removeFile(i){ pickedFiles.splice(i,1); addFiles([]); }
+
+const PROC_COPY = ['Finding your plan…','Reading your deductible…','Checking your benefits…','Organising your information…'];
+
+async function runExtraction(){
+  document.getElementById('s3-upload').style.display='none';
+  document.getElementById('s3-proc').style.display='block';
+  document.getElementById('railStep').textContent='Reading';
+
+  const box = document.getElementById('procLines');
+  box.innerHTML = PROC_COPY.map((t,i)=>`
+    <div class="proc-line" id="pl${i}"><span class="spinner" style="visibility:hidden"></span><span>${t}</span></div>`).join('');
+
+  if(pickedFiles.length) await DataSource.uploadDocuments(pickedFiles);
+
+  const reveal = (async()=>{
+    for(let i=0;i<PROC_COPY.length;i++){
+      const el = document.getElementById('pl'+i);
+      el.classList.add('on'); el.querySelector('.spinner').style.visibility='visible';
+      await wait(620);
+      el.classList.remove('on'); el.classList.add('done');
+      el.querySelector('.spinner').outerHTML = '<span class="dot verified"></span>';
+    }
+  })();
+
+  const [data] = await Promise.all([DataSource.getExtraction(), reveal]);
+  PLAN = data;
+  if(pickedFiles.length){
+    PLAN.source_documents = pickedFiles.map((f,i)=>({id:'d'+i,filename:f.name,doc_type:'SBC',pages:null}));
+  }
+  await persist();
+  showResult();
+}
+
+function counts(){
+  const v = Object.values(PLAN.fields);
+  return {
+    total:v.length,
+    verified:v.filter(f=>f.confidence==='verified').length,
+    check:v.filter(f=>f.confidence==='needs_confirmation').length,
+    missing:v.filter(f=>f.confidence==='missing').length
+  };
+}
+
+function showResult(){
+  document.getElementById('s3-proc').style.display='none';
+  document.getElementById('s3-result').style.display='block';
+  const c = counts();
+  document.getElementById('resultTitle').textContent = `We found ${c.total} pieces of information.`;
+  document.getElementById('tally').innerHTML = `
+    <div class="tally-row"><span class="dot verified"></span><span class="n">${c.verified}</span><span class="t">read clearly</span></div>
+    <div class="tally-row"><span class="dot check"></span><span class="n">${c.check}</span><span class="t">worth a second look</span></div>
+    <div class="tally-row"><span class="dot missing"></span><span class="n">${c.missing}</span><span class="t">not in your documents</span></div>`;
+}
+
+/* ============================================================================
+   SCREEN 4 — CONFIRM
+   ============================================================================ */
+function startConfirm(){
+  queue = Object.keys(PLAN.fields).filter(k=>PLAN.fields[k].confidence==='needs_confirmation');
+  qi = 0;
+  if(!queue.length) return startManualQueue();
+  go('s4'); renderConfirm();
+}
+
+function renderConfirm(){
+  const key = queue[qi], f = PLAN.fields[key], meta = FIELDS[key];
+  document.getElementById('confCounter').textContent = `${qi+1} of ${queue.length}`;
+  const src = f.source ? `Found in your ${f.source.doc_type}${f.source.page?' · page '+f.source.page:''}` : 'You entered this';
+  document.getElementById('confCard').innerHTML = `
+    <div class="field-label">${meta.label}</div>
+    <div class="value big" id="confValue">${fmt(key,f.value)}</div>
+    <p class="say">${meta.say||''}</p>
+    <div class="source"><span class="dot check"></span>${src}</div>`;
+}
+
+function editField(){
+  const key = queue[qi], f = PLAN.fields[key];
+  const raw = f.value===null?'':f.value;
+  document.getElementById('confValue').innerHTML =
+    `<input id="confInput" value="${raw}" inputmode="decimal" aria-label="${FIELDS[key].label}">`;
+  document.getElementById('confInput').focus();
+  document.getElementById('confInput').select();
+}
+
+async function acceptField(){
+  const key = queue[qi], f = PLAN.fields[key];
+  const input = document.getElementById('confInput');
+  if(input){
+    const raw = input.value.replace(/[$,%\s,]/g,'');
+    f.value = FIELDS[key].fmt==='text' ? input.value : (raw===''?null:Number(raw));
+    f.edited_by_user = true;
+  }
+  f.confidence = f.value===null ? 'missing' : 'verified';
+  await persist();
+  nextConfirm();
+}
+async function skipField(){ nextConfirm(); }
+
+function nextConfirm(){
+  qi++;
+  if(qi < queue.length) renderConfirm();
+  else startManualQueue();
+}
+
+/* ============================================================================
+   SCREEN 5 — MANUAL QUESTIONS
+   ============================================================================ */
+function startManual(){
+  manualOnly = true;
+  PLAN = EMPTY_PLAN();
+  DataSource.savePlan(PLAN);
+  startManualQueue();
+}
+
+const MANUAL_PRIORITY = ['carrier','plan_name','monthly_premium','deductible_individual',
+  'deductible_used','oop_max_individual','oop_spent','coinsurance','copay_primary',
+  'copay_specialist','copay_urgent_care','copay_er','rx_generic','hsa_eligible','plan_type','network'];
+
+function startManualQueue(){
+  manQueue = MANUAL_PRIORITY.filter(k=>PLAN.fields[k].confidence==='missing');
+  if(manualOnly) manQueue = manQueue.slice(0,6);        // keep the no-document path under 3 minutes
+  mi = 0;
+  if(!manQueue.length) return showDashboard();
+  go('s5'); renderManual();
+}
+
+function renderManual(){
+  const key = manQueue[mi], meta = FIELDS[key];
+  const remaining = manQueue.length - mi;
+  document.getElementById('manCounter').textContent = `Question ${mi+1} of ${manQueue.length}`;
+  document.getElementById('manIntro').textContent = mi===0
+    ? (manualOnly ? 'Let\'s start with the basics.' : `We only need ${remaining} more detail${remaining>1?'s':''}.`)
+    : 'One at a time.';
+
+  const control = meta.fmt==='bool'
+    ? `<div class="choice-row">
+         <button class="choice" data-v="true"  onclick="pick(this)">Yes</button>
+         <button class="choice" data-v="false" onclick="pick(this)">No</button>
+         <button class="choice" data-v="null"  onclick="pick(this)">Not sure</button>
+       </div>`
+    : `<input class="q-input" id="manInput" inputmode="${meta.fmt==='text'?'text':'decimal'}"
+              placeholder="${meta.fmt==='money'?'$0':meta.fmt==='pct'?'0%':'Type here'}"
+              aria-label="${meta.label}">`;
+
+  document.getElementById('manCard').innerHTML = `
+    <h2 style="margin-bottom:10px">${meta.q||meta.label}</h2>
+    <p class="say" style="margin-bottom:18px">${meta.say||''}</p>
+    ${control}
+    ${meta.where ? `<details class="help">
+        <summary>Where do I find this?</summary>
+        <div class="body"><div class="where" style="margin:0">
+          <ul>${meta.where.map(w=>`<li>${w}</li>`).join('')}</ul>
+        </div></div>
+      </details>` : ''}`;
+
+  const inp = document.getElementById('manInput');
+  if(inp){ inp.focus(); inp.onkeydown = e => { if(e.key==='Enter') submitManual(); }; }
+}
+
+let picked = null;
+function pick(btn){
+  document.querySelectorAll('.choice').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  picked = btn.dataset.v;
+}
+
+async function submitManual(){
+  const key = manQueue[mi], f = PLAN.fields[key], meta = FIELDS[key];
+  if(meta.fmt==='bool'){
+    if(picked===null) return;
+    f.value = picked==='null' ? null : picked==='true';
+  }else{
+    const el = document.getElementById('manInput');
+    const raw = (el?.value||'').replace(/[$,%\s,]/g,'');
+    if(raw==='') return unsureManual();
+    f.value = meta.fmt==='text' ? el.value : Number(raw);
+  }
+  f.confidence = f.value===null ? 'missing' : 'verified';
+  f.edited_by_user = true;
+  f.source = null;
+  await persist();
+  picked = null;
+  nextManual();
+}
+
+async function unsureManual(){ picked = null; nextManual(); }
+
+function nextManual(){
+  mi++;
+  if(mi < manQueue.length) renderManual();
+  else showDashboard();
+}
+
+/* ============================================================================
+   SCREEN 6 — DASHBOARD
+   ============================================================================ */
+const COVERAGE = ['copay_primary','copay_specialist','copay_urgent_care','copay_er','rx_generic','coinsurance'];
+
+function v(key){ return PLAN.fields[key]?.value; }
+function has(key){ const f=PLAN.fields[key]; return f && f.value!==null && f.value!==undefined && f.value!==''; }
+
+async function showDashboard(){
+  await persist();
+  go('s6');
+
+  const ded = v('deductible_individual'), dedUsed = v('deductible_used')||0;
+  const oop = v('oop_max_individual'),    oopUsed = v('oop_spent')||0;
+  const dedPct = ded ? Math.min(100, Math.round(dedUsed/ded*100)) : 0;
+  const oopPct = oop ? Math.min(100, Math.round(oopUsed/oop*100)) : 0;
+  const remaining = ded ? Math.max(0, ded-dedUsed) : null;
+  const gaps = Object.keys(PLAN.fields).filter(k=>PLAN.fields[k].confidence==='missing');
+  const c = counts();
+
+  document.getElementById('dash').innerHTML = `
+    <div class="dash-head">
+      <span class="eyebrow">Your health plan</span>
+      <h1 style="margin-top:8px">${has('plan_name')?v('plan_name'):'Your plan'}</h1>
+      <div class="carrier">${has('carrier')?v('carrier'):'Insurance company not yet added'}${has('plan_type')?' · '+v('plan_type'):''}</div>
+    </div>
+
+    <div class="snapshot">
+      <span class="eyebrow">Healthcare snapshot</span>
+
+      <div class="snap-hero">
+        <div class="n big">${remaining!==null?'$'+remaining.toLocaleString('en-US'):'—'}</div>
+        <div class="l">left on your deductible before your plan starts sharing more of the cost</div>
+      </div>
+
+      <div class="meter">
+        <div class="meter-top">
+          <span class="l">Deductible</span>
+          <span class="v">${fmt('deductible_used',dedUsed)} of ${fmt('deductible_individual',ded)}</span>
+        </div>
+        <div class="meter-track"><div class="meter-fill a" id="m1"></div></div>
+      </div>
+
+      <div class="meter" style="margin-bottom:0">
+        <div class="meter-top">
+          <span class="l">Out-of-pocket maximum</span>
+          <span class="v">${fmt('oop_spent',oopUsed)} of ${fmt('oop_max_individual',oop)}</span>
+        </div>
+        <div class="meter-track"><div class="meter-fill b" id="m2"></div></div>
+      </div>
+
+      <div class="snap-grid">
+        <div class="snap-cell"><div class="l">Monthly premium</div><div class="v">${fmt('monthly_premium',v('monthly_premium'))}</div></div>
+        <div class="snap-cell"><div class="l">Deductible</div><div class="v">${fmt('deductible_individual',ded)}</div></div>
+        <div class="snap-cell"><div class="l">Out-of-pocket max</div><div class="v">${fmt('oop_max_individual',oop)}</div></div>
+        <div class="snap-cell"><div class="l">HSA</div><div class="v">${fmt('hsa_eligible',v('hsa_eligible'))}</div></div>
+      </div>
+    </div>
+
+    <div class="sec-head"><h2>What things cost</h2><span class="eyebrow">In-network</span></div>
+    <div class="cov-grid">
+      ${COVERAGE.map(k=>{
+        const f = PLAN.fields[k];
+        if(f.value===null) return `
+          <div class="cov gap" onclick="fillOne('${k}')">
+            <div class="l">${FIELDS[k].label}</div>
+            <div class="v">Add this</div>
+          </div>`;
+        return `
+          <div class="cov">
+            <div class="l">${FIELDS[k].label}</div>
+            <div class="v">${fmt(k,f.value)}</div>
+            <div class="sub">${k==='coinsurance'?'Your plan pays '+(100-f.value)+'%':'Per visit'}</div>
+          </div>`;
+      }).join('')}
+    </div>
+
+    ${gaps.length ? `
+      <div class="gapcard">
+        <span class="chip missing"><span class="dot missing"></span>${gaps.length} still missing</span>
+        <h2 style="margin:12px 0 6px">Add the rest whenever you like.</h2>
+        <p class="say" style="color:var(--ink-2)">Your dashboard works without these — it just gets more accurate with them.</p>
+        <button class="btn btn-ghost" style="margin-top:14px" onclick="fillGaps()">Fill in ${gaps.length} missing detail${gaps.length>1?'s':''}</button>
+      </div>` : `
+      <div class="card" style="margin-top:12px;border-color:var(--pine);background:var(--pine-soft)">
+        <span class="chip verified"><span class="dot verified"></span>Complete</span>
+        <h2 style="margin:12px 0 6px">Everything's in.</h2>
+        <p class="say">All ${c.total} details are recorded. Emme can now show you what any visit will cost.</p>
+      </div>`}
+
+    <div class="sec-head"><h2>Your data</h2></div>
+    <div class="card">
+      <p class="say" style="margin-bottom:14px">Everything above, as structured JSON — this is what gets sent onward.</p>
+      <button class="btn btn-ghost" onclick="toggleJSON()" id="jsonBtn">Show JSON</button>
+      <pre class="jsonbox" id="jsonbox" style="display:none"></pre>
+    </div>
+
+    <button class="btn btn-quiet" style="margin-top:18px" onclick="restart()">Start over</button>`;
+
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      document.getElementById('m1').style.width = dedPct+'%';
+      document.getElementById('m2').style.width = oopPct+'%';
+    }, 120);
+  });
+}
+
+function toggleJSON(){
+  const box = document.getElementById('jsonbox'), btn = document.getElementById('jsonBtn');
+  const open = box.style.display!=='none';
+  box.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? 'Show JSON' : 'Hide JSON';
+  if(!open) box.textContent = JSON.stringify(PLAN,null,2);
+}
+
+function fillGaps(){ manualOnly = false; startManualQueue(); }
+function fillOne(key){ manQueue=[key]; mi=0; go('s5'); renderManual(); }
+
+function restart(){
+  Store.clear(); PLAN=null; pickedFiles=[]; history=[]; manualOnly=false;
+  document.getElementById('filelist').innerHTML='';
+  document.getElementById('s3-upload').style.display='block';
+  document.getElementById('s3-proc').style.display='none';
+  document.getElementById('s3-result').style.display='none';
+  go('s1', false);
+}
+
+/* ---- resume an interrupted session ---- */
+(async function boot(){
+  const saved = await DataSource.getPlan();
+  if(saved && saved.fields){
+    PLAN = saved;
+    const done = Object.values(saved.fields).some(f=>f.confidence!=='missing');
+    if(done){
+      const banner = document.createElement('button');
+      banner.className = 'btn btn-ghost';
+      banner.style.marginTop = '14px';
+      banner.textContent = 'Resume where you left off';
+      banner.onclick = showDashboard;
+      document.querySelector('#s1 .stack').appendChild(banner);
+    }
+  }
+})();
+</script>
+</body>
+</html>
