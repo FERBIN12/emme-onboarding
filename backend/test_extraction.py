@@ -1,9 +1,9 @@
 """Standalone smoke test for the extraction pipeline -- run this directly,
-no server needed, to verify the local Ollama call + PDF/image parsing works
-before wiring it into the upload endpoint.
+no server needed, to verify the Gemini call + parsing works before wiring
+it into the upload endpoint.
 
-Requires: `ollama pull qwen2.5vl:7b` already done, and the ollama service
-running (systemctl status ollama).
+Requires GEMINI_API_KEY in the environment. Get a free key at
+https://aistudio.google.com/apikey
 
 Usage: python test_extraction.py path/to/sample.pdf
 """

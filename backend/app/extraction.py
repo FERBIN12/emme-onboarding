@@ -1,44 +1,52 @@
-"""Document extraction: turn an uploaded SBC/EOB (PDF or image) into a
-partial IntakeData record.
+"""Primary document extraction path: turn an uploaded SBC/EOB (PDF or
+image) into a partial IntakeData record, using Gemini vision.
 
-Contract with the rest of the backend (session/autosave, owned separately):
     extract_from_document(file_bytes, media_type) -> IntakeData
 
-The returned IntakeData has only the fields the document actually contained;
-everything else stays at its default (None / empty). The caller merges this
-into the session's existing data and leaves untouched fields for manual
-entry or later correction, per the "graceful fallback" requirement.
+Local Ollama (extraction.py) was tried first for privacy (nothing leaves
+the laptop) but the vision models that actually fit in 6GB VRAM were
+either unreliable (qwen2.5vl:3b degrades to garbage past page 1) or
+useless (llava:7b returned nothing). Gemini was validated against the
+real sample EOB and extracted every present field correctly.
 
-We deliberately do NOT try to classify the document as "SBC" vs "EOB" first.
-An EOB only carries cost-sharing-to-date figures (deductible met, OOP met,
-coinsurance) and identity/carrier info; an SBC carries the static plan
-details (metal tier, plan type, premium) and HSA info. Asking the model to
-extract "whatever of the full schema you can find" handles both uniformly
-and matches the requirement that unextracted fields just fall through to
-manual entry.
+Security/privacy safeguards, since this is health-plan data going to a
+third party:
 
-Runs against a local Ollama vision model (qwen2.5vl:7b) instead of a cloud
-API, since real EOB/SBC documents carry PHI-adjacent data and the team
-wanted extraction to never leave the laptop. Ollama's vision models take
-images only, so PDFs are rasterized page-by-page with pdf2image first.
+  1. Identity fields (name, email, zip code) are never sent. The prompt
+     doesn't ask for them and the schema hint below omits the "identity"
+     block entirely -- the member already types this into the form
+     directly, so there's no reason to have Gemini read it off a
+     document. This is the one safeguard worth actually coding: the most
+     sensitive fields simply never leave the machine.
+  2. Uploaded bytes are processed in memory only, never written to disk.
+  3. The API key lives in an env var, never logged or hardcoded.
+  4. Production note (for the pitch, not built today): a real deployment
+     would route extraction through a BAA'd / HIPAA-compliant endpoint,
+     or fall back to on-prem inference for real patient documents.
 """
 
-import base64
-import io
 import json
+import os
 
-import ollama
-from pdf2image import convert_from_bytes
+from google import genai
+from google.genai import types
 
 from .schema import IntakeData
 
-_MODEL = "qwen2.5vl:3b"
+_MODEL = "gemini-flash-latest"
 
+_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# Deliberately excludes "identity" (name/email/zip) -- see module docstring.
 _SCHEMA_HINT = """
 Extract any of the following fields you can find in this insurance
 document. It may be a Summary of Benefits and Coverage (SBC) or an
 Explanation of Benefits (EOB) statement -- either is fine, just pull
 whatever is actually present. Leave anything not present as null.
+
+Do NOT extract or report any patient name, email address, or other
+personal identifying information, even if visible in the document. Only
+extract the plan/financial/clinical fields listed below.
 
 Watch for EOB-specific phrasing such as: "Amount approved", "Blue Cross
 discount" (or other carrier discount), "Coinsurance you pay", "In-network
@@ -56,7 +64,6 @@ found -- do not guess or fabricate values), and nothing else -- no
 markdown fences, no commentary:
 
 {
-  "identity": {"name": null, "email": null, "zip_code": null},
   "household": {"household_size": null, "income_range": null, "filing_status": null},
   "plan_details": {"carrier": null, "plan_name": null, "metal_tier": null, "plan_type": null},
   "cost_sharing": {
@@ -75,72 +82,35 @@ value that is not directly supported by the document text.
 """
 
 
-def _pdf_to_page_images(file_bytes: bytes) -> list[bytes]:
-    """Rasterize each PDF page to PNG bytes. Ollama vision models take
-    images, not PDFs directly."""
-    pages = convert_from_bytes(file_bytes, dpi=200)
-    out = []
-    for page in pages:
-        buf = io.BytesIO()
-        page.save(buf, format="PNG")
-        out.append(buf.getvalue())
-    return out
+def extract_from_document(file_bytes: bytes, media_type: str) -> IntakeData:
+    """media_type: e.g. "application/pdf", "image/png", "image/jpeg".
 
+    Gemini accepts PDFs directly, no page rasterization needed.
+    """
 
-def _merge(base: dict, incoming: dict) -> dict:
-    """Fill in only the fields base doesn't already have, first page wins
-    on conflicts since page 1 usually carries the summary/identity info."""
-    for key, value in incoming.items():
-        if isinstance(value, dict):
-            base.setdefault(key, {})
-            base[key] = _merge(base[key], value)
-        elif isinstance(value, list):
-            if value and not base.get(key):
-                base[key] = value
-        else:
-            if base.get(key) is None and value is not None:
-                base[key] = value
-    return base
-
-
-def _call_model(image_bytes: bytes) -> dict:
-    response = ollama.chat(
+    response = _client.models.generate_content(
         model=_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": _SCHEMA_HINT,
-                "images": [base64.b64encode(image_bytes).decode("utf-8")],
-            }
+        contents=[
+            types.Part.from_bytes(data=file_bytes, mime_type=media_type),
+            _SCHEMA_HINT,
         ],
-        options={"temperature": 0, "num_ctx": 4096},
+        config=types.GenerateContentConfig(temperature=0),
     )
 
-    raw_text = response["message"]["content"].strip()
+    raw_text = response.text.strip()
     if raw_text.startswith("```"):
         raw_text = raw_text.strip("`")
         if raw_text.startswith("json"):
             raw_text = raw_text[4:]
         raw_text = raw_text.strip()
 
-    # Model may still add stray text around the JSON; take the outermost braces.
     start, end = raw_text.find("{"), raw_text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError(
+            f"Model response had no parseable JSON object (likely truncated). "
+            f"Raw response: {raw_text[:300]!r}"
+        )
     raw_text = raw_text[start : end + 1]
 
-    return json.loads(raw_text)
-
-
-def extract_from_document(file_bytes: bytes, media_type: str) -> IntakeData:
-    """media_type: e.g. "application/pdf", "image/png", "image/jpeg"."""
-
-    if media_type == "application/pdf":
-        page_images = _pdf_to_page_images(file_bytes)
-    else:
-        page_images = [file_bytes]
-
-    merged: dict = {}
-    for image_bytes in page_images:
-        page_result = _call_model(image_bytes)
-        merged = _merge(merged, page_result)
-
-    return IntakeData.model_validate(merged)
+    data = json.loads(raw_text)
+    return IntakeData.model_validate(data)
