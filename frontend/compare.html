@@ -478,6 +478,9 @@ const seed = (v,c,d,p)=>({value:v,confidence:c,source:d?{doc_type:d,page:p}:null
 const EXTRACTED = {
   session_id:'demo', updated_at:new Date().toISOString(), source_documents:[],
   fields:{
+    name:seed(null,'missing'),
+    email:seed(null,'missing'),
+    zip_code:seed(null,'missing'),
     carrier:seed('Blue Cross Blue Shield','verified','SBC',1),
     plan_name:seed('Gold PPO','verified','SBC',1),
     plan_type:seed('PPO','verified','SBC',1),
@@ -1000,7 +1003,14 @@ const MANUAL_ORDER=['name','email','zip_code','carrier','plan_name','plan_type',
 
 function startConfirm(){ confQ=Object.keys(PLAN.fields).filter(k=>PLAN.fields[k].confidence==='needs_confirmation');
   ci=0; editing=false; if(!confQ.length) return startManual(); step=5; render(); }
-function startManual(){ manQ=MANUAL_ORDER.filter(k=>PLAN.fields[k]?.confidence==='missing'); mi=0; picked=null;
+function startManual(){
+  // A field absent from PLAN.fields entirely (not just null-valued) must
+  // still count as missing -- this is what silently dropped name/email/
+  // zip_code from the manual queue before, since EXTRACTED's mock data
+  // never defined those keys at all, and undefined?.confidence!=='missing'
+  // quietly filtered them out instead of asking for them.
+  manQ=MANUAL_ORDER.filter(k=>(PLAN.fields[k]?.confidence||'missing')==='missing');
+  mi=0; picked=null;
   if(!manQ.length) return go('dash'); step=6; render(); }
 
 function wire(){
@@ -1080,7 +1090,8 @@ function wire(){
     else if(a==='skipconf'){ editing=false; ci++; ci<confQ.length?render():startManual(); }
     else if(a==='pick'){ document.querySelectorAll('.choice').forEach(c=>c.classList.remove('sel'));
       el.classList.add('sel'); picked=el.dataset.v; }
-    else if(a==='submitman'){ const k=manQ[mi], m=FIELDS[k], f=PLAN.fields[k];
+    else if(a==='submitman'){ const k=manQ[mi], m=FIELDS[k];
+      const f=PLAN.fields[k]||(PLAN.fields[k]={value:null,confidence:'missing',source:null});
       if(m.f==='bool'){
         if(picked===null){
           const c=document.querySelector('.choices');
